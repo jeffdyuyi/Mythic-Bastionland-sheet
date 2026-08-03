@@ -1,0 +1,100 @@
+import { lazy, Suspense } from 'react';
+import { RouterProvider, createHashRouter, Navigate } from 'react-router-dom';
+import Onboarding from './pages/Onboarding';
+import AppLayout from './layouts/AppLayout';
+import PlayerDashboard from './pages/player/PlayerDashboard';
+import MythicCardPage from './pages/player/MythicCardPage';
+import GMDashboard from './pages/gm/GMDashboard';
+import Sparks from './pages/gm/Sparks';
+
+// Heavy routes split for lazy loading & initial bundle reduction
+const KnightLibrary = lazy(() => import('./pages/player/KnightLibrary'));
+const RulesReference = lazy(() => import('./pages/player/RulesReference'));
+const MythChronicles = lazy(() => import('./pages/gm/MythChronicles'));
+const HexMapPage = lazy(() => import('./pages/HexMapPage'));
+
+const PageFallback = () => (
+  <div className="p-8 text-center text-stone-500 text-sm font-mono animate-pulse">
+    加载中...
+  </div>
+);
+
+const router = createHashRouter([
+  {
+    path: '/',
+    element: <Onboarding />,
+  },
+  {
+    element: <AppLayout />,
+    children: [
+      // ---- Player routes ----
+      {
+        path: '/player',
+        element: <PlayerDashboard />,
+      },
+      {
+        path: '/player/card',
+        element: <MythicCardPage />,
+      },
+      {
+        path: '/player/library',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <KnightLibrary />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/player/rules',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <RulesReference />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/player/map',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <HexMapPage />
+          </Suspense>
+        ),
+      },
+      // ---- GM routes ----
+      {
+        path: '/gm',
+        element: <GMDashboard />,
+      },
+      {
+        path: '/gm/sparks',
+        element: <Sparks />,
+      },
+      {
+        path: '/gm/myths',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <MythChronicles />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/gm/map',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <HexMapPage />
+          </Suspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '*',
+    element: <Navigate to="/" replace />,
+  },
+]);
+
+function App() {
+  return <RouterProvider router={router} />;
+}
+
+export default App;

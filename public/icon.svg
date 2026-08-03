@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#991b1b"/>
+  <rect x="16" y="16" width="480" height="480" rx="84" fill="none" stroke="#d97706" stroke-width="8"/>
+  <circle cx="256" cy="256" r="210" fill="#7f1d1d"/>
+  <!-- Shield outline -->
+  <path d="M256 90 Q370 90 370 240 Q370 370 256 420 Q142 370 142 240 Q142 90 256 90 Z" fill="#eee8db" stroke="#d97706" stroke-width="12"/>
+  <path d="M256 110 Q350 110 350 240 Q350 350 256 400 Q162 350 162 240 Q162 110 256 110 Z" fill="#991b1b" stroke="#fef2f2" stroke-width="4"/>
+  <!-- Crossed Swords -->
+  <path d="M170 340 L340 170 M340 170 L320 160 M340 170 L350 190" stroke="#f59e0b" stroke-width="14" stroke-linecap="round"/>
+  <path d="M340 340 L170 170 M170 170 L190 160 M170 170 L160 190" stroke="#f59e0b" stroke-width="14" stroke-linecap="round"/>
+  <!-- Crown / Star in center -->
+  <polygon points="256,170 275,220 330,220 285,250 305,300 256,268 207,300 227,250 182,220 237,220" fill="#fbbf24" stroke="#78350f" stroke-width="3"/>
+</svg>

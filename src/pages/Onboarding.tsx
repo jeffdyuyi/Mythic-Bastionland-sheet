@@ -1,0 +1,144 @@
+import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../store/useAppStore';
+import { Swords, Crown, BookOpen, Heart, Users, Bot, User, ExternalLink, Compass } from 'lucide-react';
+
+export default function Onboarding() {
+  const navigate = useNavigate();
+  const setRole = useAppStore((state) => state.setRole);
+
+  const handleSelectRole = (role: 'player' | 'gm', targetPath?: string) => {
+    setRole(role);
+    navigate(targetPath || (role === 'player' ? '/player' : '/gm'));
+  };
+
+  return (
+    <div className="onboarding-screen">
+      <div className="onboarding-wrapper">
+        {/* 顶部 Hero 区域 */}
+        <div className="onboarding-hero">
+          <div className="onboarding-badge">
+            MYTHIC BASTIONLAND
+          </div>
+
+          <h1 className="onboarding-title">
+            神话堡垒之地
+          </h1>
+        </div>
+
+        {/* 入口网格 */}
+        <div className="onboarding-grid">
+          {/* 骑士入口 */}
+          <button
+            onClick={() => handleSelectRole('player')}
+            className="onboarding-card-btn"
+          >
+            <div className="onboarding-card-icon-box">
+              <Swords className="w-8 h-8" />
+            </div>
+            <h2 className="onboarding-card-title">
+              我是骑士 (Player)
+            </h2>
+          </button>
+
+          {/* 裁判入口 */}
+          <button
+            onClick={() => handleSelectRole('gm')}
+            className="onboarding-card-btn gm-card"
+          >
+            <div className="onboarding-card-icon-box" style={{ background: '#fef2f2', color: '#991b1b', borderColor: 'rgba(153,27,27,0.3)' }}>
+              <Crown className="w-8 h-8" />
+            </div>
+            <h2 className="onboarding-card-title">
+              我是裁判 (Game Master)
+            </h2>
+          </button>
+        </div>
+
+        {/* 全局规则与图鉴入口 */}
+        <button
+          onClick={() => handleSelectRole('player', '/player/library')}
+          className="w-full max-w-[720px] bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-800 hover:border-amber-600 dark:hover:border-amber-500 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center justify-between cursor-pointer group text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-serif font-bold text-stone-900 dark:text-stone-100 text-sm group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
+                72 骑士原型与规则图鉴库
+              </div>
+              <div className="text-xs text-stone-500 dark:text-stone-400">
+                查阅全部骑士原型、绝技、策略、伤疤与规则细则
+              </div>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-amber-800 dark:text-amber-400 group-hover:translate-x-1 transition-transform pr-2">
+            进入图鉴库 →
+          </span>
+        </button>
+
+        {/* 作者与社区信息卡片 */}
+        <div className="onboarding-author-box">
+          <div className="onboarding-author-header">
+            <div className="onboarding-author-title">
+              <Compass className="w-4 h-4 text-amber-700" />
+              <span>作者与社区</span>
+            </div>
+            <a
+              href="https://ifdian.net/a/nogubird"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="onboarding-sponsor-btn"
+            >
+              <Heart className="w-3.5 h-3.5 fill-current text-rose-200" />
+              <span>为作者加油</span>
+              <ExternalLink className="w-3 h-3 opacity-90" />
+            </a>
+          </div>
+
+          <div className="onboarding-author-grid">
+            <div className="onboarding-author-item">
+              <div className="onboarding-author-item-icon">
+                <User className="w-4 h-4 text-amber-800" />
+              </div>
+              <div>
+                <span className="onboarding-author-item-label">作者信息</span>
+                <span className="onboarding-author-item-val">不咕鸟（哈基米德）</span>
+              </div>
+            </div>
+
+            <div className="onboarding-author-item">
+              <div className="onboarding-author-item-icon">
+                <Bot className="w-4 h-4 text-amber-800" />
+              </div>
+              <div>
+                <span className="onboarding-author-item-label">辅助 AI</span>
+                <span className="onboarding-author-item-val">Antigravity Gemini</span>
+              </div>
+            </div>
+
+            <div className="onboarding-author-item">
+              <div className="onboarding-author-item-icon">
+                <Users className="w-4 h-4 text-amber-800" />
+              </div>
+              <div>
+                <span className="onboarding-author-item-label">不咕鸟创作交流群</span>
+                <span className="onboarding-author-item-val font-mono">261751459</span>
+              </div>
+            </div>
+
+            <div className="onboarding-author-item">
+              <div className="onboarding-author-item-icon" style={{ background: '#fef2f2', color: '#991b1b' }}>
+                <Users className="w-4 h-4 text-red-800" />
+              </div>
+              <div>
+                <span className="onboarding-author-item-label">成都秘密基地 TRPG 俱乐部群</span>
+                <span className="onboarding-author-item-val font-mono" style={{ color: '#991b1b' }}>691707475</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
