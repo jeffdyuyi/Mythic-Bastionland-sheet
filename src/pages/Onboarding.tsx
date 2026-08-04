@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { Swords, Crown, BookOpen, Heart, Users, Bot, User, ExternalLink, Compass } from 'lucide-react';
+import { Swords, Crown, BookOpen, Heart, Users, Bot, User, ExternalLink, Compass, Scroll } from 'lucide-react';
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -77,12 +77,53 @@ export default function Onboarding() {
           </span>
         </button>
 
+        {/* 致谢名单卡片 (置于工具作者之前) */}
+        <div className="onboarding-credits-box">
+          <div className="onboarding-credits-header">
+            <div className="onboarding-credits-title">
+              <Scroll className="w-4 h-4 text-amber-700" />
+              <span>致谢名单</span>
+            </div>
+            <span className="text-xs text-stone-500 dark:text-stone-400">
+              以下名单按首字母排序，不分先后
+            </span>
+          </div>
+
+          <div className="onboarding-credits-content">
+            <div className="credits-row">
+              <span className="credits-label">规则翻译：</span>
+              <span className="credits-names">
+                阿包，风魔乱闪，狗查，海灵，柯米，咸本，伊兰德，狱寺炎 <sup>†</sup>，A9，HXQXH，MayZone，Namer
+              </span>
+            </div>
+
+            <div className="credits-row">
+              <span className="credits-label">规则校对：</span>
+              <span className="credits-names">柯米，拂晓鹧鸪啼，燕绿</span>
+            </div>
+
+            <div className="credits-row">
+              <span className="credits-label">角色卡排版：</span>
+              <span className="credits-names">钢打</span>
+            </div>
+
+            <div className="credits-row">
+              <span className="credits-label">规则书排版：</span>
+              <span className="credits-names">拂晓鹧鸪啼</span>
+            </div>
+          </div>
+
+          <div className="onboarding-memorial-line">
+            谨以此篇献给狱寺炎 YSY (1997-2025)，他的温柔与善良将始终激励我等。
+          </div>
+        </div>
+
         {/* 作者与社区信息卡片 */}
         <div className="onboarding-author-box">
           <div className="onboarding-author-header">
             <div className="onboarding-author-title">
               <Compass className="w-4 h-4 text-amber-700" />
-              <span>作者与社区</span>
+              <span>工具作者与社区</span>
             </div>
             <a
               href="https://ifdian.net/a/nogubird"
@@ -102,7 +143,7 @@ export default function Onboarding() {
                 <User className="w-4 h-4 text-amber-800" />
               </div>
               <div>
-                <span className="onboarding-author-item-label">作者信息</span>
+                <span className="onboarding-author-item-label">工具作者</span>
                 <span className="onboarding-author-item-val">不咕鸟（哈基米德）</span>
               </div>
             </div>
