@@ -11,7 +11,8 @@ import Sparks from './pages/gm/Sparks';
 const KnightLibrary = lazy(() => import('./pages/player/KnightLibrary'));
 const RulesReference = lazy(() => import('./pages/player/RulesReference'));
 const MythChronicles = lazy(() => import('./pages/gm/MythChronicles'));
-const HexMapPage = lazy(() => import('./pages/HexMapPage'));
+const MapHubPage = lazy(() => import('./pages/map/MapHubPage'));
+const MapWorkspacePage = lazy(() => import('./pages/map/MapWorkspacePage'));
 
 const PageFallback = () => (
   <div className="p-8 text-center text-stone-500 text-sm font-mono animate-pulse">
@@ -27,6 +28,23 @@ const router = createHashRouter([
   {
     element: <AppLayout />,
     children: [
+      // ---- Independent Map Hub & Workspace ----
+      {
+        path: '/map',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <MapHubPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/map/workspace',
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <MapWorkspacePage />
+          </Suspense>
+        ),
+      },
       // ---- Player routes ----
       {
         path: '/player',
@@ -54,11 +72,7 @@ const router = createHashRouter([
       },
       {
         path: '/player/map',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <HexMapPage />
-          </Suspense>
-        ),
+        element: <Navigate to="/map" replace />,
       },
       // ---- GM routes ----
       {
@@ -79,11 +93,7 @@ const router = createHashRouter([
       },
       {
         path: '/gm/map',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <HexMapPage />
-          </Suspense>
-        ),
+        element: <Navigate to="/map" replace />,
       },
     ],
   },

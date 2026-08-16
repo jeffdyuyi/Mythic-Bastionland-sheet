@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { HexCell, TerrainType, StructureType, MapToken, MapTool, DiceRollResult, SavedMap } from '../types/map';
+import type { HexCell, TerrainType, StructureType, MapToken, MapTool, DiceRollResult, SavedMap, MapRoom } from '../types/map';
 
 interface MapState {
   // 地图尺寸与视口
@@ -19,11 +19,14 @@ interface MapState {
   revealMode: 'permanent' | 'los'; // 永久揭示 vs 动态视线
   
   // 数据
+  currentMapTitle: string;
   hexes: Record<string, HexCell>;
   tokens: MapToken[];
   selectedHexKey: string | null;
   selectedTokenId: string | null;
   savedMaps: SavedMap[];
+  rooms: MapRoom[];
+  activeRoom: MapRoom | null;
   
   // 撤销/重做
   history: Record<string, HexCell>[];
@@ -40,6 +43,7 @@ interface MapState {
   setSightDistance: (dist: number) => void;
   setRevealMode: (mode: 'permanent' | 'los') => void;
   setGridDimensions: (width: number, height: number, hexSize?: number) => void;
+  setCurrentMapTitle: (title: string) => void;
   
   // 绘制与编辑
   paintHex: (col: number, row: number) => void;
@@ -64,11 +68,18 @@ interface MapState {
   undo: () => void;
   redo: () => void;
 
-  // 地图存档
-  saveCurrentMap: (name: string) => void;
+  // 地图与房间管理
+  createNewMap: (name: string, width: number, height: number, templateName?: string) => SavedMap;
+  saveCurrentMap: (name: string) => SavedMap;
+  loadSavedMapById: (mapId: string) => boolean;
   loadMap: (mapId: string) => void;
   deleteSavedMap: (mapId: string) => void;
   importMapJSON: (jsonStr: string) => boolean;
+  
+  // 房间列表与加入
+  setActiveRoom: (room: MapRoom | null) => void;
+  joinRoomById: (roomId: string) => boolean;
+  createRoom: (name: string, hostName: string, mapName?: string) => MapRoom;
 
   // 投骰聚合
   rollDice: (expression: string, label: string, roller?: string) => DiceRollResult;
@@ -143,6 +154,97 @@ const createInitialHexes = (w: number, h: number): Record<string, HexCell> => {
   return hexes;
 };
 
+const DEFAULT_PRESET_MAPS: SavedMap[] = [
+  {
+    id: 'preset-map-1',
+    name: '星辉堡垒与磨坊镇领地',
+    updatedAt: '2026-08-16',
+    width: 12,
+    height: 10,
+    hexes: (() => {
+      const hexes = createInitialHexes(12, 10);
+      hexes[getHexKey(6, 5)].structure = 'castle';
+      hexes[getHexKey(6, 5)].label = '星辉城堡';
+      hexes[getHexKey(5, 4)].structure = 'village';
+      hexes[getHexKey(5, 4)].label = '磨坊镇';
+      hexes[getHexKey(7, 6)].terrain = 'forest';
+      hexes[getHexKey(7, 6)].structure = 'ruins';
+      hexes[getHexKey(7, 6)].label = '古木遗迹';
+      hexes[getHexKey(4, 5)].terrain = 'water';
+      hexes[getHexKey(4, 5)].label = '清泉水域';
+      return hexes;
+    })(),
+    tokens: [
+      { id: 'token-preset-1', name: '镜之骑士', col: 5, row: 4, color: '#B45309', symbol: 'M', isPlayer: true },
+      { id: 'token-preset-2', name: '守护骑士', col: 6, row: 5, color: '#15803D', symbol: 'G', isPlayer: true },
+    ],
+  },
+  {
+    id: 'preset-map-2',
+    name: '迷雾森林与上古巨石阵',
+    updatedAt: '2026-08-16',
+    width: 12,
+    height: 10,
+    hexes: (() => {
+      const hexes = createInitialHexes(12, 10);
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 12; c++) {
+          const key = getHexKey(c, r);
+          if ((c + r) % 3 === 0) hexes[key].terrain = 'forest';
+          else if ((c + r) % 5 === 0) hexes[key].terrain = 'swamp';
+          else if ((c + r) % 7 === 0) hexes[key].terrain = 'hills';
+        }
+      }
+      hexes[getHexKey(3, 3)].structure = 'myth_site';
+      hexes[getHexKey(3, 3)].label = '上古巨石阵';
+      hexes[getHexKey(8, 7)].structure = 'ruins';
+      hexes[getHexKey(8, 7)].label = '破损哨塔';
+      return hexes;
+    })(),
+    tokens: [
+      { id: 'token-preset-3', name: '游侠骑士', col: 3, row: 3, color: '#0284C7', symbol: 'R', isPlayer: true },
+    ],
+  },
+];
+
+const DEFAULT_PRESET_ROOMS: MapRoom[] = [
+  {
+    id: 'ROOM-8891',
+    name: '⚔️ 磨坊镇与堡垒探险团',
+    hostName: 'GM 埃尔德',
+    mapName: '星辉堡垒与磨坊镇领地',
+    mapId: 'preset-map-1',
+    currentPlayers: 3,
+    maxPlayers: 5,
+    status: 'open',
+    description: '正在探索星辉城堡周边的古木遗迹与磨坊镇，欢迎新骑士加入！',
+    updatedAt: '10分钟前',
+  },
+  {
+    id: 'ROOM-1024',
+    name: '🌲 迷雾森林上古神话远征',
+    hostName: 'GM 柯米',
+    mapName: '迷雾森林与上古巨石阵',
+    mapId: 'preset-map-2',
+    currentPlayers: 2,
+    maxPlayers: 4,
+    status: 'open',
+    description: '深山迷雾中发现了神秘巨石阵预兆，急需有勇气的骑士前往解密。',
+    updatedAt: '25分钟前',
+  },
+  {
+    id: 'ROOM-7788',
+    name: '🌊 海岸关口与深海哨塔领地',
+    hostName: 'GM 风魔',
+    mapName: '海岸与远征岛屿',
+    currentPlayers: 4,
+    maxPlayers: 4,
+    status: 'in_progress',
+    description: '海岸线风暴来袭，探索小队正在坚守深海哨塔。',
+    updatedAt: '1小时前',
+  },
+];
+
 export const useMapStore = create<MapState>()(
   persist(
     (set, get) => ({
@@ -158,13 +260,16 @@ export const useMapStore = create<MapState>()(
       sightDistance: 2,
       revealMode: 'permanent',
       
+      currentMapTitle: '星辉堡垒与磨坊镇领地',
       hexes: createInitialHexes(DEFAULT_WIDTH, DEFAULT_HEIGHT),
       tokens: [
         { id: 'player-1', name: '探索骑士', col: 2, row: 2, color: '#B45309', symbol: 'K', isPlayer: true }
       ],
       selectedHexKey: null,
       selectedTokenId: null,
-      savedMaps: [],
+      savedMaps: DEFAULT_PRESET_MAPS,
+      rooms: DEFAULT_PRESET_ROOMS,
+      activeRoom: null,
       
       history: [createInitialHexes(DEFAULT_WIDTH, DEFAULT_HEIGHT)],
       historyIndex: 0,
@@ -518,6 +623,157 @@ export const useMapStore = create<MapState>()(
         });
       },
 
+      setCurrentMapTitle: (title) => set({ currentMapTitle: title }),
+
+      createNewMap: (name, width, height, templateName) => {
+        const newHexes = createInitialHexes(width, height);
+        const newMap: SavedMap = {
+          id: `map-${Date.now()}`,
+          name: name || `自定义地图 ${get().savedMaps.length + 1}`,
+          updatedAt: new Date().toLocaleDateString('zh-CN'),
+          width,
+          height,
+          hexes: newHexes,
+          tokens: [
+            { id: 'token-player', name: '探索骑士', col: Math.floor(width / 2), row: Math.floor(height / 2), color: '#B45309', symbol: 'K', isPlayer: true }
+          ]
+        };
+        const updatedSavedMaps = [newMap, ...get().savedMaps];
+        set({
+          savedMaps: updatedSavedMaps,
+          width,
+          height,
+          hexes: newHexes,
+          tokens: newMap.tokens,
+          currentMapTitle: newMap.name,
+          mode: 'gm',
+          history: [newHexes],
+          historyIndex: 0,
+        });
+        if (templateName) {
+          get().applyTemplate(templateName);
+        }
+        return newMap;
+      },
+
+      saveCurrentMap: (name) => {
+        const { savedMaps, width, height, hexes, tokens, currentMapTitle } = get();
+        const mapName = name || currentMapTitle || `战役地图 ${savedMaps.length + 1}`;
+        const newMap: SavedMap = {
+          id: `map-${Date.now()}`,
+          name: mapName,
+          updatedAt: new Date().toLocaleDateString('zh-CN'),
+          width,
+          height,
+          hexes,
+          tokens,
+        };
+        set({ savedMaps: [newMap, ...savedMaps], currentMapTitle: mapName });
+        return newMap;
+      },
+
+      loadSavedMapById: (mapId) => {
+        const target = get().savedMaps.find((m) => m.id === mapId);
+        if (!target) return false;
+        set({
+          width: target.width,
+          height: target.height,
+          hexes: target.hexes,
+          tokens: target.tokens,
+          currentMapTitle: target.name,
+          mode: 'gm',
+          history: [target.hexes],
+          historyIndex: 0,
+        });
+        return true;
+      },
+
+      loadMap: (mapId) => {
+        get().loadSavedMapById(mapId);
+      },
+
+      deleteSavedMap: (mapId) => {
+        set({ savedMaps: get().savedMaps.filter((m) => m.id !== mapId) });
+      },
+
+      importMapJSON: (jsonStr) => {
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.hexes && data.width && data.height) {
+            set({
+              width: data.width,
+              height: data.height,
+              hexes: data.hexes,
+              tokens: data.tokens || [],
+              currentMapTitle: data.name || '导入地图',
+              history: [data.hexes],
+              historyIndex: 0,
+            });
+            return true;
+          }
+          return false;
+        } catch {
+          return false;
+        }
+      },
+
+      setActiveRoom: (room) => set({ activeRoom: room }),
+
+      joinRoomById: (roomId) => {
+        const room = get().rooms.find((r) => r.id.toLowerCase() === roomId.trim().toLowerCase());
+        if (room) {
+          if (room.mapId) {
+            get().loadSavedMapById(room.mapId);
+          }
+          set({
+            activeRoom: room,
+            currentMapTitle: `${room.name}`,
+            mode: 'player', // 骑士视角加入
+          });
+          return true;
+        }
+        const customRoom: MapRoom = {
+          id: roomId.toUpperCase(),
+          name: `房间 ${roomId.toUpperCase()}`,
+          hostName: '未知 GM',
+          mapName: '探险地图',
+          currentPlayers: 1,
+          maxPlayers: 4,
+          status: 'open',
+          description: '通过房间代码直连加入的探索通道',
+          updatedAt: '刚刚',
+        };
+        set({
+          activeRoom: customRoom,
+          currentMapTitle: customRoom.name,
+          mode: 'player',
+        });
+        return true;
+      },
+
+      createRoom: (name, hostName, mapName) => {
+        const { savedMaps, currentMapTitle } = get();
+        const roomId = `ROOM-${Math.floor(1000 + Math.random() * 9000)}`;
+        const newRoom: MapRoom = {
+          id: roomId,
+          name: name || `GM 探险小队 ${roomId}`,
+          hostName: hostName || 'GM 裁判',
+          mapName: mapName || currentMapTitle || '星辉堡垒领地',
+          mapId: savedMaps[0]?.id,
+          currentPlayers: 1,
+          maxPlayers: 5,
+          status: 'open',
+          description: '在线房间已开启，等待骑士连接并进行探索。',
+          updatedAt: '刚刚',
+        };
+        set({
+          rooms: [newRoom, ...get().rooms],
+          activeRoom: newRoom,
+          mode: 'gm',
+        });
+        return newRoom;
+      },
+
       // Undo / Redo
       undo: () => {
         const { history, historyIndex } = get();
@@ -538,58 +794,6 @@ export const useMapStore = create<MapState>()(
             hexes: history[newIdx],
             historyIndex: newIdx,
           });
-        }
-      },
-
-      // 地图存档管理
-      saveCurrentMap: (name) => {
-        const { savedMaps, width, height, hexes, tokens } = get();
-        const newMap: SavedMap = {
-          id: `map-${Date.now()}`,
-          name: name || `战役地图 ${savedMaps.length + 1}`,
-          updatedAt: new Date().toLocaleDateString('zh-CN'),
-          width,
-          height,
-          hexes,
-          tokens,
-        };
-        set({ savedMaps: [...savedMaps, newMap] });
-      },
-
-      loadMap: (mapId) => {
-        const target = get().savedMaps.find((m) => m.id === mapId);
-        if (!target) return;
-        set({
-          width: target.width,
-          height: target.height,
-          hexes: target.hexes,
-          tokens: target.tokens,
-          history: [target.hexes],
-          historyIndex: 0,
-        });
-      },
-
-      deleteSavedMap: (mapId) => {
-        set({ savedMaps: get().savedMaps.filter((m) => m.id !== mapId) });
-      },
-
-      importMapJSON: (jsonStr) => {
-        try {
-          const data = JSON.parse(jsonStr);
-          if (data.hexes && data.width && data.height) {
-            set({
-              width: data.width,
-              height: data.height,
-              hexes: data.hexes,
-              tokens: data.tokens || [],
-              history: [data.hexes],
-              historyIndex: 0,
-            });
-            return true;
-          }
-          return false;
-        } catch {
-          return false;
         }
       },
 

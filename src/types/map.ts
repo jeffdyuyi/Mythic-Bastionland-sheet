@@ -68,3 +68,17 @@ export interface SavedMap {
   hexes: Record<string, HexCell>;
   tokens: MapToken[];
 }
+
+export interface MapRoom {
+  id: string;          // 房间代码，例如 "ROOM-8891"
+  name: string;        // 房间名字，例如 "磨坊镇与堡垒探险团"
+  hostName: string;    // 裁判名，例如 "GM 埃尔德"
+  mapName: string;     // 使用的地图名，例如 "骑士领地与城堡"
+  mapId?: string;      // 关联的 savedMap id
+  currentPlayers: number;
+  maxPlayers: number;
+  status: 'open' | 'in_progress';
+  description: string;
+  updatedAt: string;
+}
+
