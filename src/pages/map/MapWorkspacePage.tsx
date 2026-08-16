@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapStore } from '../../stores/useMapStore';
 import { mqttRoomService } from '../../services/mqttRoomService';
+import type { DiceRollResult } from '../../types/map';
 import { HexMapCanvas } from '../../components/map/HexMapCanvas';
 import { MapToolbar } from '../../components/map/MapToolbar';
 import { MapHeaderControlBar } from '../../components/map/MapHeaderControlBar';
-import { HexDicePanel } from '../../components/map/HexDicePanel';
 import { HexInspectorDrawer } from '../../components/map/HexInspectorDrawer';
 import { MapTemplatesModal } from '../../components/map/MapTemplatesModal';
 import { MapSettingsModal } from '../../components/map/MapSettingsModal';
@@ -51,7 +51,7 @@ export const MapWorkspacePage: React.FC = () => {
         const payload = msg.payload as { hexes: ReturnType<typeof store.getStatePayload>['hexes'] };
         useMapStore.setState({ hexes: payload.hexes });
       } else if (msg.type === 'DICE_ROLLED') {
-        const payload = msg.payload as { diceLog: any };
+        const payload = msg.payload as { diceLog: DiceRollResult };
         const currentLogs = useMapStore.getState().diceLogs;
         if (payload?.diceLog && !currentLogs.some((l) => l.id === payload.diceLog.id)) {
           useMapStore.setState({ diceLogs: [payload.diceLog, ...currentLogs.slice(0, 49)] });
@@ -222,23 +222,30 @@ export const MapWorkspacePage: React.FC = () => {
         lastAutoSaveTime={lastAutoSaveTime}
       />
 
-      {/* 主布局：左侧 2 列 HexMapCanvas 画布，右侧 1 列 GM 裁判操控台与格子档案 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 左侧两列：Canvas 地图画布 */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* 六边形格子档案 slide-over 抽屉 */}
+      <HexInspectorDrawer />
+
+      {/* 主布局：骑士端 100% 全宽屏幕利用；裁判端 3 列栅格 */}
+      {isPlayerMode ? (
+        <div className="w-full space-y-6">
           <HexMapCanvas />
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 左侧两列：Canvas 地图画布 */}
+          <div className="lg:col-span-2 space-y-6">
+            <HexMapCanvas />
+          </div>
 
-        {/* 右侧一列：GM 裁判地图操控台 + 格子档案 + GM投骰面板 */}
-        <div className="lg:col-span-1 space-y-6">
-          <MapToolbar
-            onOpenTemplates={() => setIsTemplatesOpen(true)}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-          <HexInspectorDrawer />
-          {!isPlayerMode && <HexDicePanel />}
+          {/* 右侧一列：GM 裁判地图工具操控台 */}
+          <div className="lg:col-span-1 space-y-6">
+            <MapToolbar
+              onOpenTemplates={() => setIsTemplatesOpen(true)}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 模态框 */}
       <MapTemplatesModal isOpen={isTemplatesOpen} onClose={() => setIsTemplatesOpen(false)} />

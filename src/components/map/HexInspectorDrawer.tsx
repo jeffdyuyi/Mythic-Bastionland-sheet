@@ -44,6 +44,36 @@ export const HexInspectorDrawer: React.FC = () => {
   const activeMyth = cell.linkedMythInstanceId ? activeMyths[cell.linkedMythInstanceId] : null;
   const mythDef = activeMyth ? MYTH_DB.find(m => m.id === activeMyth.mythId) : null;
 
+  // 骑士模式且未揭开迷雾的六边形：展示迷雾遮蔽防剧透卡
+  if (isPlayerMode && !cell.explored) {
+    return (
+      <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity animate-fade-in p-2 sm:p-4">
+        <div className="absolute inset-0" onClick={() => selectHex(null)} />
+        <div className="relative z-10 w-full max-w-md bg-stone-900 text-stone-200 h-auto my-auto rounded-3xl border border-stone-800 shadow-2xl p-6 space-y-4">
+          <div className="flex justify-between items-center border-b border-stone-800 pb-3">
+            <div className="flex items-center gap-2 font-serif font-bold text-lg text-amber-400">
+              <MapPin className="w-5 h-5 text-amber-500" />
+              <span>未探索坐标 ({cell.col}, {cell.row})</span>
+            </div>
+            <button
+              onClick={() => selectHex(null)}
+              className="text-stone-400 hover:text-white p-1 rounded-lg bg-stone-800 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 bg-stone-950/90 rounded-2xl border border-amber-500/30 text-center space-y-3 shadow-inner">
+            <div className="text-4xl">🌫️</div>
+            <h4 className="font-serif font-bold text-amber-200 text-base">战争迷雾遮蔽中</h4>
+            <p className="text-xs text-stone-400 leading-relaxed max-w-xs mx-auto">
+              骑士战团尚未踏入或探索该六边形。请在移动回合开启时，控制棋子行进至相邻 1 格范围以解锁视野并查阅地貌档案。
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function handleMythSelect(instanceId: string) {
     if (isPlayerMode) return;
     if (!instanceId) {
