@@ -76,10 +76,13 @@ interface MapState {
   deleteSavedMap: (mapId: string) => void;
   importMapJSON: (jsonStr: string) => boolean;
   
-  // 房间列表与加入
+  // 房间列表、心跳与解散
   setActiveRoom: (room: MapRoom | null) => void;
   joinRoomById: (roomId: string) => boolean;
-  createRoom: (name: string, hostName: string, mapName?: string) => MapRoom;
+  createRoom: (name: string, hostName?: string, mapName?: string, mapId?: string) => MapRoom;
+  updateRoomHeartbeat: (roomId: string) => void;
+  closeRoom: (roomId: string) => void;
+  cleanupInactiveRooms: (maxInactiveMs?: number) => void;
 
   // 投骰聚合
   rollDice: (expression: string, label: string, roller?: string) => DiceRollResult;
@@ -207,44 +210,6 @@ const DEFAULT_PRESET_MAPS: SavedMap[] = [
   },
 ];
 
-const DEFAULT_PRESET_ROOMS: MapRoom[] = [
-  {
-    id: 'ROOM-8891',
-    name: '⚔️ 磨坊镇与堡垒探险团',
-    hostName: 'GM 埃尔德',
-    mapName: '星辉堡垒与磨坊镇领地',
-    mapId: 'preset-map-1',
-    currentPlayers: 3,
-    maxPlayers: 5,
-    status: 'open',
-    description: '正在探索星辉城堡周边的古木遗迹与磨坊镇，欢迎新骑士加入！',
-    updatedAt: '10分钟前',
-  },
-  {
-    id: 'ROOM-1024',
-    name: '🌲 迷雾森林上古神话远征',
-    hostName: 'GM 柯米',
-    mapName: '迷雾森林与上古巨石阵',
-    mapId: 'preset-map-2',
-    currentPlayers: 2,
-    maxPlayers: 4,
-    status: 'open',
-    description: '深山迷雾中发现了神秘巨石阵预兆，急需有勇气的骑士前往解密。',
-    updatedAt: '25分钟前',
-  },
-  {
-    id: 'ROOM-7788',
-    name: '🌊 海岸关口与深海哨塔领地',
-    hostName: 'GM 风魔',
-    mapName: '海岸与远征岛屿',
-    currentPlayers: 4,
-    maxPlayers: 4,
-    status: 'in_progress',
-    description: '海岸线风暴来袭，探索小队正在坚守深海哨塔。',
-    updatedAt: '1小时前',
-  },
-];
-
 export const useMapStore = create<MapState>()(
   persist(
     (set, get) => ({
@@ -268,7 +233,7 @@ export const useMapStore = create<MapState>()(
       selectedHexKey: null,
       selectedTokenId: null,
       savedMaps: DEFAULT_PRESET_MAPS,
-      rooms: DEFAULT_PRESET_ROOMS,
+      rooms: [],
       activeRoom: null,
       
       history: [createInitialHexes(DEFAULT_WIDTH, DEFAULT_HEIGHT)],
@@ -719,8 +684,51 @@ export const useMapStore = create<MapState>()(
 
       setActiveRoom: (room) => set({ activeRoom: room }),
 
+      updateRoomHeartbeat: (roomId) => {
+        const now = Date.now();
+        set((state) => ({
+          rooms: state.rooms.map((r) =>
+            r.id === roomId
+              ? { ...r, lastActiveTime: now, updatedAt: '刚刚' }
+              : r
+          ),
+          activeRoom:
+            state.activeRoom?.id === roomId
+              ? { ...state.activeRoom, lastActiveTime: now, updatedAt: '刚刚' }
+              : state.activeRoom,
+        }));
+      },
+
+      closeRoom: (roomId) => {
+        set((state) => ({
+          rooms: state.rooms.filter((r) => r.id !== roomId),
+          activeRoom: state.activeRoom?.id === roomId ? null : state.activeRoom,
+        }));
+      },
+
+      cleanupInactiveRooms: (maxInactiveMs = 3 * 60 * 1000) => {
+        const now = Date.now();
+        set((state) => {
+          const validRooms = state.rooms.filter((r) => {
+            if (!r.lastActiveTime) return false;
+            return now - r.lastActiveTime < maxInactiveMs;
+          });
+          const isActiveRoomValid = state.activeRoom
+            ? validRooms.some((r) => r.id === state.activeRoom?.id)
+            : false;
+
+          return {
+            rooms: validRooms,
+            activeRoom: isActiveRoomValid ? state.activeRoom : null,
+          };
+        });
+      },
+
       joinRoomById: (roomId) => {
-        const room = get().rooms.find((r) => r.id.toLowerCase() === roomId.trim().toLowerCase());
+        get().cleanupInactiveRooms();
+
+        const targetId = roomId.trim().toUpperCase();
+        const room = get().rooms.find((r) => r.id.toUpperCase() === targetId);
         if (room) {
           if (room.mapId) {
             get().loadSavedMapById(room.mapId);
@@ -732,45 +740,50 @@ export const useMapStore = create<MapState>()(
           });
           return true;
         }
+        const now = Date.now();
         const customRoom: MapRoom = {
-          id: roomId.toUpperCase(),
-          name: `房间 ${roomId.toUpperCase()}`,
-          hostName: '未知 GM',
+          id: targetId.startsWith('ROOM-') ? targetId : `ROOM-${targetId}`,
+          name: `探索房间 ${targetId}`,
+          hostName: 'GM 裁判',
           mapName: '探险地图',
           currentPlayers: 1,
           maxPlayers: 4,
           status: 'open',
-          description: '通过房间代码直连加入的探索通道',
+          description: '通过房间代码直连加入的探索视窗',
           updatedAt: '刚刚',
+          lastActiveTime: now,
         };
-        set({
+        set((state) => ({
+          rooms: [customRoom, ...state.rooms],
           activeRoom: customRoom,
           currentMapTitle: customRoom.name,
           mode: 'player',
-        });
+        }));
         return true;
       },
 
-      createRoom: (name, hostName, mapName) => {
+      createRoom: (name, hostName = 'GM 裁判', mapName, mapId) => {
         const { savedMaps, currentMapTitle } = get();
         const roomId = `ROOM-${Math.floor(1000 + Math.random() * 9000)}`;
+        const now = Date.now();
         const newRoom: MapRoom = {
           id: roomId,
-          name: name || `GM 探险小队 ${roomId}`,
-          hostName: hostName || 'GM 裁判',
+          name: name || `GM 探险房间 ${roomId}`,
+          hostName,
           mapName: mapName || currentMapTitle || '星辉堡垒领地',
-          mapId: savedMaps[0]?.id,
+          mapId: mapId || savedMaps[0]?.id,
           currentPlayers: 1,
           maxPlayers: 5,
           status: 'open',
-          description: '在线房间已开启，等待骑士连接并进行探索。',
+          description: '在线探索房间已广播开启，等待骑士连接参与。',
           updatedAt: '刚刚',
+          lastActiveTime: now,
         };
-        set({
-          rooms: [newRoom, ...get().rooms],
+        set((state) => ({
+          rooms: [newRoom, ...state.rooms.filter((r) => r.id !== roomId)],
           activeRoom: newRoom,
           mode: 'gm',
-        });
+        }));
         return newRoom;
       },
 

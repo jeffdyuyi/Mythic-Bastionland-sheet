@@ -47,10 +47,9 @@ interface Props {
   isPlayerLocked?: boolean;
 }
 
-export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings, isPlayerLocked = false }) => {
+export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings }) => {
   const {
     mode,
-    setMode,
     activeTool,
     setActiveTool,
     selectedTerrain,
@@ -130,40 +129,23 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings, i
 
   return (
     <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-sm space-y-5">
-      {/* 1. 模式切换大标头 - 玩家端锁定隐藏，仅 GM 可见 */}
-      {!isPlayerLocked && (
-        <div className="flex justify-between items-center bg-stone-100 dark:bg-stone-800/60 p-1.5 rounded-2xl">
-          <button
-            onClick={() => setMode('gm')}
-            className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
-              mode === 'gm'
-                ? 'bg-amber-700 text-white shadow'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-            }`}
-          >
-            <span>👑 GM 裁判模式</span>
-          </button>
-          <button
-            onClick={() => setMode('player')}
-            className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
-              mode === 'player'
-                ? 'bg-emerald-700 text-white shadow'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-            }`}
-          >
-            <span>🛡️ 玩家探索模式</span>
-          </button>
+      {/* 视角控制标识 (完全锁定在二级门廊，禁止在地图内部混用与切换) */}
+      <div className="flex items-center justify-between bg-stone-50 dark:bg-stone-800/80 p-3 rounded-2xl border border-stone-200 dark:border-stone-700">
+        <div className="flex items-center gap-2 font-bold text-xs">
+          {mode === 'gm' ? (
+            <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1.5 font-serif text-sm">
+              👑 GM 裁判地图操控台
+            </span>
+          ) : (
+            <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 font-serif text-sm">
+              🛡️ 骑士探索迷雾视窗
+            </span>
+          )}
         </div>
-      )}
-
-      {/* 玩家模式锁定提示 */}
-      {isPlayerLocked && (
-        <div className="flex items-center gap-2 bg-emerald-900/20 border border-emerald-600/30 rounded-2xl px-4 py-2.5">
-          <span className="text-emerald-400 text-sm">🛡️</span>
-          <span className="text-xs font-bold text-emerald-300">玩家探索视角 · 战争迷雾已启动</span>
-          <span className="ml-auto text-xs text-emerald-500/70">地图编辑功能由 GM 专属掌控</span>
-        </div>
-      )}
+        <span className="text-[11px] text-stone-400 font-mono px-2.5 py-0.5 bg-stone-200/60 dark:bg-stone-700/60 rounded-full">
+          门廊选定模式
+        </span>
+      </div>
 
       {/* 2. GM 专属绘制工具集 */}
       {mode === 'gm' && (

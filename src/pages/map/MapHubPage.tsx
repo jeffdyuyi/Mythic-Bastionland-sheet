@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapStore } from '../../stores/useMapStore';
 import { useAppStore } from '../../store/useAppStore';
@@ -13,6 +13,7 @@ import {
   Trash2,
   ArrowRight,
   Search,
+  Radio,
 } from 'lucide-react';
 
 export const MapHubPage: React.FC = () => {
@@ -27,7 +28,14 @@ export const MapHubPage: React.FC = () => {
     joinRoomById,
     deleteSavedMap,
     setMode,
+    cleanupInactiveRooms,
+    createRoom,
   } = useMapStore();
+
+  // 组件挂载时清理超时未活动房间 (3分钟无心跳则清理解除占用)
+  useEffect(() => {
+    cleanupInactiveRooms();
+  }, [cleanupInactiveRooms]);
 
   // 二级选择选项卡状态: 'gm_manage' (操作地图-裁判) | 'player_join' (加入地图-骑士)
   const [activeTab, setActiveTab] = useState<'gm_manage' | 'player_join'>('gm_manage');
@@ -38,6 +46,11 @@ export const MapHubPage: React.FC = () => {
   const [newMapWidth, setNewMapWidth] = useState(12);
   const [newMapHeight, setNewMapHeight] = useState(10);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('knight_domain');
+
+  // 广播发布新房间模态框
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newHostName, setNewHostName] = useState('GM 裁判');
 
   // 房间代码直连状态
   const [inputRoomId, setInputRoomId] = useState('');
@@ -65,7 +78,20 @@ export const MapHubPage: React.FC = () => {
     navigate('/map/workspace');
   };
 
-  // 3. 骑士：选择已有房间加入探索
+  // 3. 裁判：开启广播新房间
+  const handlePublishRoomSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setRole('gm');
+    setMode('gm');
+    createRoom(
+      newRoomName.trim() || '探险房间',
+      newHostName.trim() || 'GM 裁判'
+    );
+    setShowCreateRoomModal(false);
+    navigate('/map/workspace');
+  };
+
+  // 4. 骑士：选择已有房间加入探索
   const handleJoinRoom = (roomId: string) => {
     setRole('player');
     setMode('player');
@@ -73,7 +99,7 @@ export const MapHubPage: React.FC = () => {
     navigate('/map/workspace');
   };
 
-  // 4. 骑士：通过代码加入房间
+  // 5. 骑士：通过代码加入房间
   const handleJoinByCodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputRoomId.trim()) return;
@@ -97,7 +123,7 @@ export const MapHubPage: React.FC = () => {
             六边形地图控制中心
           </h1>
           <p className="text-sm text-stone-300 leading-relaxed opacity-90">
-            独立的战役地图调度中枢。无论是裁判主持操控地图库，还是骑士联机加入探索迷雾房间，均可在此一键接入。
+            独立的战役地图调度中枢。无论是裁判主持操控地图库与广播房间，还是骑士联机加入探索迷雾房间，均可在此一键接入。
           </p>
         </div>
       </div>
@@ -127,7 +153,7 @@ export const MapHubPage: React.FC = () => {
                 )}
               </div>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                挑选已有战役地图或新建空白网格，具备地形刷涂、战争迷雾控制与全图广播权。
+                挑选已有战役地图或新建空白网格，具备地形刷涂、战争迷雾控制与广播开房权。
               </p>
             </div>
           </div>
@@ -187,12 +213,21 @@ export const MapHubPage: React.FC = () => {
               </p>
             </div>
 
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-red-700 hover:from-amber-700 hover:to-red-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" /> ➕ 新建地图
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowCreateRoomModal(true)}
+                className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
+              >
+                <Radio className="w-4 h-4" /> 📡 开启广播房间
+              </button>
+
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-red-700 hover:from-amber-700 hover:to-red-800 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> ➕ 新建地图
+              </button>
+            </div>
           </div>
 
           {/* 地图卡片列表 */}
@@ -258,7 +293,7 @@ export const MapHubPage: React.FC = () => {
                 <span>开放的探险房间 ({rooms.length})</span>
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                挑选已有房间直接加入，或输入房间代码连入 GM 导览窗口。
+                挑选已有房间直接加入，或输入房间代码连入 GM 导览窗口（断线超3分钟自动释放房间）。
               </p>
             </div>
 
@@ -280,55 +315,71 @@ export const MapHubPage: React.FC = () => {
             </form>
           </div>
 
-          {/* 房间卡片列表 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {rooms.map((room) => (
-              <div
-                key={room.id}
-                className="bg-white dark:bg-stone-900 rounded-3xl p-5 border border-stone-200 dark:border-stone-800 hover:border-emerald-500/60 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
-              >
-                <div className="space-y-3">
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-500/30">
-                      {room.id}
-                    </span>
-                    <span className="text-xs font-mono text-stone-400">
-                      {room.currentPlayers}/{room.maxPlayers} 骑士在线
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="font-serif font-bold text-stone-900 dark:text-stone-100 text-base">
-                      {room.name}
-                    </h3>
-                    <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 line-clamp-2 leading-relaxed">
-                      {room.description}
-                    </p>
-                  </div>
-
-                  <div className="text-xs text-stone-500 dark:text-stone-400 space-y-1 bg-stone-50 dark:bg-stone-800/50 p-2.5 rounded-xl border border-stone-200/60 dark:border-stone-800">
-                    <div className="flex justify-between">
-                      <span>主持裁判:</span>
-                      <span className="font-semibold text-stone-800 dark:text-stone-200">{room.hostName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>探索地图:</span>
-                      <span className="font-semibold text-stone-800 dark:text-stone-200">{room.mapName}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-stone-100 dark:border-stone-800/60">
-                  <button
-                    onClick={() => handleJoinRoom(room.id)}
-                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
-                  >
-                    <Swords className="w-4 h-4" /> 加入探索地图
-                  </button>
-                </div>
+          {/* 房间列表/空状态 */}
+          {rooms.length === 0 ? (
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-10 text-center space-y-4 max-w-xl mx-auto shadow-sm my-8">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-2xl font-bold border border-emerald-500/20">
+                🧭
               </div>
-            ))}
-          </div>
+              <div>
+                <h3 className="font-serif font-bold text-lg text-stone-900 dark:text-stone-100">
+                  暂无在线的战役探险房间
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed max-w-md mx-auto mt-1">
+                  裁判离线或主动解散 3 分钟后房间将自动注销释放。请等待裁判开启广播房间，或直接在上方框中输入房间代码连入。
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {rooms.map((room) => (
+                <div
+                  key={room.id}
+                  className="bg-white dark:bg-stone-900 rounded-3xl p-5 border border-stone-200 dark:border-stone-800 hover:border-emerald-500/60 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-500/30">
+                        {room.id}
+                      </span>
+                      <span className="text-xs font-mono text-stone-400">
+                        {room.currentPlayers}/{room.maxPlayers} 骑士在线
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="font-serif font-bold text-stone-900 dark:text-stone-100 text-base">
+                        {room.name}
+                      </h3>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 line-clamp-2 leading-relaxed">
+                        {room.description}
+                      </p>
+                    </div>
+
+                    <div className="text-xs text-stone-500 dark:text-stone-400 space-y-1 bg-stone-50 dark:bg-stone-800/50 p-2.5 rounded-xl border border-stone-200/60 dark:border-stone-800">
+                      <div className="flex justify-between">
+                        <span>主持裁判:</span>
+                        <span className="font-semibold text-stone-800 dark:text-stone-200">{room.hostName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>探索地图:</span>
+                        <span className="font-semibold text-stone-800 dark:text-stone-200">{room.mapName}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800/60">
+                    <button
+                      onClick={() => handleJoinRoom(room.id)}
+                      className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
+                    >
+                      <Swords className="w-4 h-4" /> 加入探索地图
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -421,6 +472,75 @@ export const MapHubPage: React.FC = () => {
                   className="px-4 py-2 bg-amber-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
                 >
                   创建并进入操作
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 模态框：开启并广播新探索房间 */}
+      {showCreateRoomModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl max-w-md w-full shadow-2xl border border-stone-200 dark:border-stone-800 space-y-5">
+            <div className="flex justify-between items-center border-b border-stone-100 dark:border-stone-800 pb-3">
+              <h3 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Radio className="w-5 h-5 text-emerald-600 animate-pulse" />
+                <span>开启并广播探索房间</span>
+              </h3>
+              <button
+                onClick={() => setShowCreateRoomModal(false)}
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handlePublishRoomSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                  探险房间名称
+                </label>
+                <input
+                  type="text"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  placeholder="例如: 磨坊镇与遗迹探索团"
+                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-sm text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400 mb-1">
+                  主持裁判名称
+                </label>
+                <input
+                  type="text"
+                  value={newHostName}
+                  onChange={(e) => setNewHostName(e.target.value)}
+                  placeholder="例如: GM 柯米"
+                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-sm text-stone-800 dark:text-stone-200"
+                />
+              </div>
+
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 border border-emerald-500/20 leading-relaxed">
+                💡 广播成功后，骑士可在“加入地图”中看见该房间。当裁判离开或断线超过 3 分钟后，房间将自动注销清理解除占用。
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateRoomModal(false)}
+                  className="px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-sm"
+                >
+                  发布并进入房间
                 </button>
               </div>
             </form>

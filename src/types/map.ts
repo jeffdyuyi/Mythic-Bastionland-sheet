@@ -80,5 +80,6 @@ export interface MapRoom {
   status: 'open' | 'in_progress';
   description: string;
   updatedAt: string;
+  lastActiveTime: number; // 房主最后活跃/心跳时间戳 (Date.now())，超期自动注销释放
 }
 

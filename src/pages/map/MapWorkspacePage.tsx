@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapStore } from '../../stores/useMapStore';
 import { HexMapCanvas } from '../../components/map/HexMapCanvas';
@@ -7,17 +7,39 @@ import { HexDicePanel } from '../../components/map/HexDicePanel';
 import { HexInspectorDrawer } from '../../components/map/HexInspectorDrawer';
 import { MapTemplatesModal } from '../../components/map/MapTemplatesModal';
 import { MapSettingsModal } from '../../components/map/MapSettingsModal';
-import { ArrowLeft, Compass, Map as MapIcon, HelpCircle, Shield, Dices } from 'lucide-react';
+import { ArrowLeft, Compass, Map as MapIcon, HelpCircle, Shield, Dices, Radio, PowerOff } from 'lucide-react';
 
 export const MapWorkspacePage: React.FC = () => {
   const navigate = useNavigate();
-  const { mode, currentMapTitle, activeRoom } = useMapStore();
+  const { mode, currentMapTitle, activeRoom, updateRoomHeartbeat, closeRoom } = useMapStore();
 
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   const isPlayerMode = mode === 'player';
+
+  // 定时发送心跳更新房主活跃时间 (每15秒心跳一次)
+  useEffect(() => {
+    if (!activeRoom || isPlayerMode) return;
+
+    // 立即更新一次心跳
+    updateRoomHeartbeat(activeRoom.id);
+
+    const interval = setInterval(() => {
+      updateRoomHeartbeat(activeRoom.id);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [activeRoom, isPlayerMode, updateRoomHeartbeat]);
+
+  const handleDissolveRoom = () => {
+    if (!activeRoom) return;
+    if (confirm(`确定要解散房间“${activeRoom.name} (${activeRoom.id})”并释放占用吗？`)) {
+      closeRoom(activeRoom.id);
+      navigate('/map');
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
@@ -55,8 +77,22 @@ export const MapWorkspacePage: React.FC = () => {
 
         <div className="flex items-center gap-3 z-10 shrink-0">
           {activeRoom && (
-            <div className="text-xs bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-xl font-mono">
-              房间: {activeRoom.id}
+            <div className="flex items-center gap-2">
+              <div className="text-xs bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-xl font-mono flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <span>房间: {activeRoom.id}</span>
+              </div>
+
+              {!isPlayerMode && (
+                <button
+                  onClick={handleDissolveRoom}
+                  className="px-3 py-1.5 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-500/40 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                  title="解散此房间并释放占用"
+                >
+                  <PowerOff className="w-3.5 h-3.5" />
+                  <span>解散房间</span>
+                </button>
+              )}
             </div>
           )}
 
