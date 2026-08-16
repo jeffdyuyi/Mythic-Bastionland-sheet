@@ -1,15 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCharacterStore } from '../../stores/useCharacterStore';
-import { useMapStore } from '../../stores/useMapStore';
 import { getKnightLabel } from '../../data/knights';
 import { getRank } from '../../data/gameTables';
 import CharacterSheet from '../../components/player/CharacterSheet';
 import CharacterCreationModal from '../../components/player/CharacterCreationModal';
 import BattlePanel from '../../components/player/BattlePanel';
 import EquipmentPanel from '../../components/player/EquipmentPanel';
-import { HexMapCanvas } from '../../components/map/HexMapCanvas';
-import { HexInspectorDrawer } from '../../components/map/HexInspectorDrawer';
 
 export default function PlayerDashboard() {
   const {
@@ -22,16 +19,9 @@ export default function PlayerDashboard() {
     importCharacter,
     exportCharacter,
   } = useCharacterStore();
-  const { setMode } = useMapStore();
 
   const [showCreate, setShowCreate] = useState(!currentCharacterId && characterIds.length === 0);
-  const [activeTab, setActiveTab] = useState<'sheet' | 'battle' | 'equipment' | 'map'>('sheet');
-
-  useEffect(() => {
-    if (activeTab === 'map') {
-      setMode('player');
-    }
-  }, [activeTab, setMode]);
+  const [activeTab, setActiveTab] = useState<'sheet' | 'battle' | 'equipment'>('sheet');
 
   function handleExport() {
     const char = exportCharacter();
@@ -151,45 +141,12 @@ export default function PlayerDashboard() {
             >
               装备
             </button>
-            <button
-              className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`}
-              onClick={() => {
-                setMode('player');
-                setActiveTab('map');
-              }}
-            >
-              🗺️ 探索地图
-            </button>
           </div>
 
           <div className="tab-content">
             {activeTab === 'sheet' && <CharacterSheet />}
             {activeTab === 'battle' && <BattlePanel />}
             {activeTab === 'equipment' && <EquipmentPanel />}
-            {activeTab === 'map' && (
-              <div className="space-y-6 pt-2">
-                <div className="flex justify-between items-center bg-stone-100 dark:bg-stone-800/80 p-3 rounded-2xl border border-stone-200 dark:border-stone-700 text-xs">
-                  <div className="font-bold text-stone-700 dark:text-stone-300">
-                    🛡️ 骑士队伍视角 (点击六边形即可进行队伍行走与视野探索)
-                  </div>
-                  <Link
-                    to="/map/workspace"
-                    className="px-3 py-1 bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold rounded-lg hover:bg-amber-500/30 transition flex items-center gap-1"
-                  >
-                    <span>全屏模式 ↗</span>
-                  </Link>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <HexMapCanvas />
-                  </div>
-                  <div className="lg:col-span-1">
-                    <HexInspectorDrawer />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </>
       )}

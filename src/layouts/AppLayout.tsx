@@ -50,11 +50,13 @@ export default function AppLayout() {
   const playerNavLinks = [
     { to: '/player', label: '角色', icon: '⚔️' },
     { to: '/player/card', label: '角色卡', icon: '🃏' },
+    { to: '/player/map', label: '地图', icon: '🗺️' },
     { to: '/player/rules', label: '规则', icon: '⚖️' },
   ];
 
   const gmNavLinks = [
     { to: '/gm', label: '控制台', icon: '👑' },
+    { to: '/gm/map', label: '地图', icon: '🗺️' },
     { to: '/gm/myths', label: '神话战报', icon: '📜' },
     { to: '/gm/sparks', label: '灵感火花', icon: '⚡' },
   ];

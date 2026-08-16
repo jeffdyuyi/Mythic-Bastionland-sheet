@@ -10,6 +10,8 @@ import Sparks from './pages/gm/Sparks';
 // Heavy routes split for lazy loading & initial bundle reduction
 const KnightLibrary = lazy(() => import('./pages/player/KnightLibrary'));
 const RulesReference = lazy(() => import('./pages/player/RulesReference'));
+const PlayerMapPage = lazy(() => import('./pages/player/PlayerMapPage'));
+const GMMapPage = lazy(() => import('./pages/gm/GMMapPage'));
 const MythChronicles = lazy(() => import('./pages/gm/MythChronicles'));
 const MapHubPage = lazy(() => import('./pages/map/MapHubPage'));
 const MapWorkspacePage = lazy(() => import('./pages/map/MapWorkspacePage'));
@@ -72,7 +74,11 @@ const router = createHashRouter([
       },
       {
         path: '/player/map',
-        element: <Navigate to="/map" replace />,
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <PlayerMapPage />
+          </Suspense>
+        ),
       },
       // ---- GM routes ----
       {
@@ -93,7 +99,11 @@ const router = createHashRouter([
       },
       {
         path: '/gm/map',
-        element: <Navigate to="/map" replace />,
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <GMMapPage />
+          </Suspense>
+        ),
       },
     ],
   },

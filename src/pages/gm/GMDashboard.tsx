@@ -1,20 +1,12 @@
-import { useState, useEffect, type ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useCharacterStore } from '../../stores/useCharacterStore';
 import { useGMStore } from '../../stores/useGMStore';
-import { useMapStore } from '../../stores/useMapStore';
 import { getRank, rollDie } from '../../data/gameTables';
 import { getKnightLabel, getKnightById } from '../../data/knights';
-import { Crown, Sparkles, BookOpen, Dices, Shield, Plus, Trash2, Eye, Upload, Download, Swords, RotateCcw, MapPin, Maximize2 } from 'lucide-react';
+import { Crown, Sparkles, BookOpen, Dices, Shield, Plus, Trash2, Eye, Upload, Download, Swords, RotateCcw } from 'lucide-react';
 import type { Character, TemporaryNPC } from '../../types';
 import { exportCampaignArchive, importCampaignArchive } from '../../utils/campaignArchive';
-import { HexMapCanvas } from '../../components/map/HexMapCanvas';
-import { MapToolbar } from '../../components/map/MapToolbar';
-import { MapHeaderControlBar } from '../../components/map/MapHeaderControlBar';
-import { HexInspectorDrawer } from '../../components/map/HexInspectorDrawer';
-import { HexDicePanel } from '../../components/map/HexDicePanel';
-import { MapTemplatesModal } from '../../components/map/MapTemplatesModal';
-import { MapSettingsModal } from '../../components/map/MapSettingsModal';
 
 interface D6RollTable {
   crisis: string;   // d6 = 1
@@ -25,33 +17,9 @@ interface D6RollTable {
 export default function GMDashboard() {
   const { characterIds, characters, adjustVirtueForChar, adjustGDForChar, importCharacter } = useCharacterStore();
   const { activeMythIds, npcs, addNpc, removeNpc, combatRound, adjustCombatRound, resetCombatRound } = useGMStore();
-  const { setMode, saveCurrentMap, currentMapTitle } = useMapStore();
 
-  const [activeTab, setActiveTab] = useState<'tactics' | 'map'>('tactics');
   const [quickRollLog, setQuickRollLog] = useState<string[]>([]);
   const [importNotice, setImportNotice] = useState<string | null>(null);
-
-  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string>(
-    new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  );
-
-  // 保证进入 GM Dashboard 时为 裁判模式
-  useEffect(() => {
-    setMode('gm');
-  }, [setMode]);
-
-  // 裁判模式每 5 分钟自动保存到本地
-  useEffect(() => {
-    const interval = setInterval(() => {
-      saveCurrentMap(currentMapTitle || '战役地图');
-      const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      setLastAutoSaveTime(timeStr);
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [saveCurrentMap, currentMapTitle]);
 
   function handleExportCampaign() {
     exportCampaignArchive();
@@ -194,56 +162,19 @@ export default function GMDashboard() {
         )}
       </div>
 
-      {/* 裁判控制台主页签控制 */}
-      <div className="flex border-b border-stone-200 dark:border-stone-800 gap-2">
-        <button
-          onClick={() => setActiveTab('tactics')}
-          className={`py-2.5 px-5 font-serif font-bold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'tactics'
-              ? 'border-amber-600 text-amber-900 dark:text-amber-200 bg-amber-500/10 rounded-t-xl'
-              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
-          }`}
-        >
-          <Shield className="w-4 h-4 text-amber-600" />
-          <span>战术面板 & 战团状态</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('map')}
-          className={`py-2.5 px-5 font-serif font-bold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'map'
-              ? 'border-amber-600 text-amber-900 dark:text-amber-200 bg-amber-500/10 rounded-t-xl'
-              : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
-          }`}
-        >
-          <MapPin className="w-4 h-4 text-amber-600" />
-          <span>地图管理中枢</span>
-        </button>
-
-        <Link
-          to="/map/workspace"
-          className="ml-auto py-2 px-3 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border border-stone-200 dark:border-stone-700 self-center"
-        >
-          <Maximize2 className="w-3.5 h-3.5 text-amber-600" />
-          <span>全屏大图模式</span>
-        </Link>
-      </div>
-
-      {activeTab === 'tactics' && (
-        <div className="space-y-6">
-          {/* 战团角色卡片列表 */}
-          <div className="detail-section-card">
-            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2">
-              <h3 className="detail-section-title border-none p-0">
-                <Shield className="w-5 h-5 text-amber-700" />
-                <span>战团成员实时状态 & 先知档案 ({characterIds.length})</span>
-              </h3>
-              <label className="btn btn-xs btn-ghost text-stone-500 hover:text-stone-800 cursor-pointer flex items-center gap-1">
-                <Upload className="w-3.5 h-3.5" />
-                <span>导入玩家 JSON 存档</span>
-                <input type="file" accept=".json" onChange={handleImportKnightJson} className="hidden" />
-              </label>
-            </div>
+      {/* 战团角色卡片列表 */}
+      <div className="detail-section-card">
+        <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2">
+          <h3 className="detail-section-title border-none p-0">
+            <Shield className="w-5 h-5 text-amber-700" />
+            <span>战团成员实时状态 & 先知档案 ({characterIds.length})</span>
+          </h3>
+          <label className="btn btn-xs btn-ghost text-stone-500 hover:text-stone-800 cursor-pointer flex items-center gap-1">
+            <Upload className="w-3.5 h-3.5" />
+            <span>导入玩家 JSON 存档</span>
+            <input type="file" accept=".json" onChange={handleImportKnightJson} className="hidden" />
+          </label>
+        </div>
 
             {characterIds.length === 0 ? (
               <div className="p-8 text-center bg-stone-50 dark:bg-stone-900/40 rounded-xl border border-dashed border-stone-300 dark:border-stone-800 text-stone-500 text-sm space-y-2">
@@ -433,36 +364,6 @@ export default function GMDashboard() {
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* 地图管理中枢 Tab */}
-      {activeTab === 'map' && (
-        <div className="space-y-6">
-          <MapHeaderControlBar
-            onOpenTemplates={() => setIsTemplatesOpen(true)}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            lastAutoSaveTime={lastAutoSaveTime}
-          />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <HexMapCanvas />
-            </div>
-            <div className="lg:col-span-1 space-y-6">
-              <MapToolbar
-                onOpenTemplates={() => setIsTemplatesOpen(true)}
-                onOpenSettings={() => setIsSettingsOpen(true)}
-              />
-              <HexInspectorDrawer />
-              <HexDicePanel />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 模态框 */}
-      <MapTemplatesModal isOpen={isTemplatesOpen} onClose={() => setIsTemplatesOpen(false)} />
-      <MapSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }
