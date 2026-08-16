@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapStore } from '../../stores/useMapStore';
+import { mqttRoomService } from '../../services/mqttRoomService';
 import { HexMapCanvas } from '../../components/map/HexMapCanvas';
 import { MapToolbar } from '../../components/map/MapToolbar';
 import { MapHeaderControlBar } from '../../components/map/MapHeaderControlBar';
@@ -23,6 +24,46 @@ export const MapWorkspacePage: React.FC = () => {
   );
 
   const isPlayerMode = mode === 'player';
+
+  // 监听纯前端 MQTT 实时网络消息 (Real-time Cross-device Sync)
+  useEffect(() => {
+    const unsubscribe = mqttRoomService.onMessage((msg) => {
+      const store = useMapStore.getState();
+      if (msg.type === 'JOIN_REQUEST' && store.mode === 'gm') {
+        // Host 响应玩家加入请求，广播发送全量地图状态
+        mqttRoomService.broadcastFullState('GM 裁判', store.getStatePayload());
+      } else if (msg.type === 'FULL_STATE_SYNC' && store.mode === 'player') {
+        // 骑士同步最新地图全量状态
+        store.applyNetworkState(msg.payload as Parameters<typeof store.applyNetworkState>[0]);
+      } else if (msg.type === 'TOKEN_MOVED') {
+        // 棋子移动实时同步
+        const payload = msg.payload as { tokenId: string; col: number; row: number };
+        if (payload?.tokenId) {
+          store.applyNetworkTokenMove(payload.tokenId, payload.col, payload.row);
+        }
+      } else if (msg.type === 'TOGGLE_MOVEMENT_PHASE') {
+        const payload = msg.payload as { active: boolean };
+        useMapStore.setState({ movementPhaseActive: payload.active });
+      } else if (msg.type === 'TOGGLE_PARTY_MODE') {
+        const payload = msg.payload as { active: boolean };
+        useMapStore.setState({ partyGroupMode: payload.active });
+      } else if (msg.type === 'MAP_HEX_UPDATED') {
+        const payload = msg.payload as { hexes: ReturnType<typeof store.getStatePayload>['hexes'] };
+        useMapStore.setState({ hexes: payload.hexes });
+      } else if (msg.type === 'DICE_ROLLED') {
+        const payload = msg.payload as { diceLog: any };
+        const currentLogs = useMapStore.getState().diceLogs;
+        if (payload?.diceLog && !currentLogs.some((l) => l.id === payload.diceLog.id)) {
+          useMapStore.setState({ diceLogs: [payload.diceLog, ...currentLogs.slice(0, 49)] });
+        }
+      } else if (msg.type === 'ROOM_CLOSED' && store.mode === 'player') {
+        alert('GM 已解散该探险房间！');
+        navigate('/map');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   // 定时发送心跳更新房主活跃时间 (每15秒心跳一次)
   useEffect(() => {
@@ -54,6 +95,7 @@ export const MapWorkspacePage: React.FC = () => {
   const handleDissolveRoom = () => {
     if (!activeRoom) return;
     if (confirm(`确定要解散房间“${activeRoom.name} (${activeRoom.id})”并释放占用吗？`)) {
+      mqttRoomService.closeRoom('GM 裁判');
       closeRoom(activeRoom.id);
       navigate('/map');
     }

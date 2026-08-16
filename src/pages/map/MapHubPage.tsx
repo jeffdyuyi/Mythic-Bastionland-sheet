@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMapStore } from '../../stores/useMapStore';
 import { useAppStore } from '../../store/useAppStore';
+import { mqttRoomService, type RoomAnnounceMessage } from '../../services/mqttRoomService';
 import {
   Compass,
   Crown,
@@ -32,9 +33,15 @@ export const MapHubPage: React.FC = () => {
     createRoom,
   } = useMapStore();
 
-  // 组件挂载时清理超时未活动房间 (3分钟无心跳则清理解除占用)
+  const [onlineRooms, setOnlineRooms] = useState<RoomAnnounceMessage[]>([]);
+
+  // 组件挂载时清理超时未活动房间并监听 MQTT 纯前端大厅在线广播
   useEffect(() => {
     cleanupInactiveRooms();
+    const unsubscribe = mqttRoomService.onLobbyRoomsUpdate((discovered) => {
+      setOnlineRooms(discovered);
+    });
+    return () => unsubscribe();
   }, [cleanupInactiveRooms]);
 
   // 二级选择选项卡状态: 'gm_manage' (操作地图-裁判) | 'player_join' (加入地图-骑士)
@@ -83,9 +90,16 @@ export const MapHubPage: React.FC = () => {
     e.preventDefault();
     setRole('gm');
     setMode('gm');
-    createRoom(
+    const room = createRoom(
       newRoomName.trim() || '探险房间',
       newHostName.trim() || 'GM 裁判'
+    );
+    const { getStatePayload } = useMapStore.getState();
+    mqttRoomService.startRoomHost(
+      room.id,
+      room.name,
+      room.hostName,
+      getStatePayload
     );
     setShowCreateRoomModal(false);
     navigate('/map/workspace');
@@ -96,6 +110,7 @@ export const MapHubPage: React.FC = () => {
     setRole('player');
     setMode('player');
     joinRoomById(roomId);
+    mqttRoomService.joinRoomPlayer(roomId, '探索骑士');
     navigate('/map/workspace');
   };
 
@@ -106,6 +121,7 @@ export const MapHubPage: React.FC = () => {
     setRole('player');
     setMode('player');
     joinRoomById(inputRoomId.trim());
+    mqttRoomService.joinRoomPlayer(inputRoomId.trim(), '探索骑士');
     navigate('/map/workspace');
   };
 
@@ -316,7 +332,7 @@ export const MapHubPage: React.FC = () => {
           </div>
 
           {/* 房间列表/空状态 */}
-          {rooms.length === 0 ? (
+          {rooms.length === 0 && onlineRooms.length === 0 ? (
             <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-10 text-center space-y-4 max-w-xl mx-auto shadow-sm my-8">
               <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-2xl font-bold border border-emerald-500/20">
                 🧭
@@ -326,12 +342,60 @@ export const MapHubPage: React.FC = () => {
                   暂无在线的战役探险房间
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed max-w-md mx-auto mt-1">
-                  裁判离线或主动解散 3 分钟后房间将自动注销释放。请等待裁判开启广播房间，或直接在上方框中输入房间代码连入。
+                  裁判开启广播放房间后，可通过纯前端 MQTT 公共通道跨设备即时自动上线。请等待裁判开房，或在右上方输入代码连入。
                 </p>
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* MQTT 跨端实效发现的在线房间 */}
+              {onlineRooms.map((or) => (
+                <div
+                  key={or.roomId}
+                  className="bg-gradient-to-br from-emerald-950/20 via-stone-900 to-stone-900 rounded-3xl p-5 border-2 border-emerald-500/60 shadow-lg space-y-4 flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-mono font-bold px-2.5 py-1 bg-emerald-500 text-stone-950 rounded-full flex items-center gap-1 shadow-sm">
+                        <Radio className="w-3.5 h-3.5 animate-pulse text-stone-950" />
+                        <span>{or.roomId}</span>
+                      </span>
+                      <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">
+                        📡 跨网在线
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="font-serif font-bold text-emerald-100 text-base flex items-center gap-2">
+                        <span>{or.name}</span>
+                      </h3>
+                      <p className="text-xs text-stone-300 mt-1 line-clamp-2 leading-relaxed">
+                        地图: {or.currentMapTitle || '战役领地'}
+                      </p>
+                    </div>
+
+                    <div className="text-xs text-stone-300 space-y-1 bg-black/40 p-2.5 rounded-xl border border-emerald-500/20">
+                      <div className="flex justify-between">
+                        <span>主持裁判:</span>
+                        <span className="font-semibold text-amber-300">{or.hostName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>在线骑士:</span>
+                        <span className="font-semibold text-emerald-300">{or.playerCount} 人参与</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-emerald-500/20">
+                    <button
+                      onClick={() => handleJoinRoom(or.roomId)}
+                      className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-md"
+                    >
+                      <Swords className="w-4 h-4" /> 跨网加入联机房间
+                    </button>
+                  </div>
+                </div>
+              ))}
               {rooms.map((room) => (
                 <div
                   key={room.id}

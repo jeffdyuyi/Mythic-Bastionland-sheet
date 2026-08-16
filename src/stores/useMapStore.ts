@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { HexCell, TerrainType, StructureType, MapToken, MapTool, DiceRollResult, SavedMap, MapRoom } from '../types/map';
+import { mqttRoomService } from '../services/mqttRoomService';
 
 interface MapState {
   // 地图尺寸与视口
@@ -93,6 +94,27 @@ interface MapState {
   // 投骰聚合
   rollDice: (expression: string, label: string, roller?: string) => DiceRollResult;
   clearDiceLogs: () => void;
+
+  // 纯前端 MQTT 网络实时同步方法
+  getStatePayload: () => {
+    width: number;
+    height: number;
+    currentMapTitle: string;
+    hexes: Record<string, HexCell>;
+    tokens: MapToken[];
+    movementPhaseActive: boolean;
+    partyGroupMode: boolean;
+  };
+  applyNetworkState: (payload: Partial<{
+    width: number;
+    height: number;
+    currentMapTitle: string;
+    hexes: Record<string, HexCell>;
+    tokens: MapToken[];
+    movementPhaseActive: boolean;
+    partyGroupMode: boolean;
+  }>) => void;
+  applyNetworkTokenMove: (tokenId: string, col: number, row: number) => void;
 }
 
 const DEFAULT_WIDTH = 12;
@@ -260,8 +282,18 @@ export const useMapStore = create<MapState>()(
 
       movementPhaseActive: true,
       partyGroupMode: false,
-      setMovementPhaseActive: (movementPhaseActive) => set({ movementPhaseActive }),
-      setPartyGroupMode: (partyGroupMode) => set({ partyGroupMode }),
+      setMovementPhaseActive: (movementPhaseActive) => {
+        set({ movementPhaseActive });
+        if (get().activeRoom) {
+          mqttRoomService.broadcastMovementPhaseToggle('Host', movementPhaseActive);
+        }
+      },
+      setPartyGroupMode: (partyGroupMode) => {
+        set({ partyGroupMode });
+        if (get().activeRoom) {
+          mqttRoomService.broadcastPartyModeToggle('Host', partyGroupMode);
+        }
+      },
 
       setMode: (mode) => set({ mode }),
       setActiveTool: (activeTool) => set({ activeTool }),
@@ -472,6 +504,15 @@ export const useMapStore = create<MapState>()(
           tokens: updatedTokens,
           hexes: newHexes,
         });
+
+        if (get().activeRoom) {
+          mqttRoomService.broadcastTokenMove(
+            get().mode === 'gm' ? 'GM 裁判' : '骑士',
+            id,
+            col,
+            row
+          );
+        }
       },
 
       removeToken: (id) => {
@@ -891,6 +932,29 @@ export const useMapStore = create<MapState>()(
       },
 
       clearDiceLogs: () => set({ diceLogs: [] }),
+
+      // 纯前端网络同步实现
+      getStatePayload: () => {
+        const { width, height, currentMapTitle, hexes, tokens, movementPhaseActive, partyGroupMode } = get();
+        return { width, height, currentMapTitle, hexes, tokens, movementPhaseActive, partyGroupMode };
+      },
+
+      applyNetworkState: (payload) => {
+        if (!payload) return;
+        set({
+          width: payload.width ?? get().width,
+          height: payload.height ?? get().height,
+          currentMapTitle: payload.currentMapTitle ?? get().currentMapTitle,
+          hexes: payload.hexes ?? get().hexes,
+          tokens: payload.tokens ?? get().tokens,
+          movementPhaseActive: payload.movementPhaseActive ?? get().movementPhaseActive,
+          partyGroupMode: payload.partyGroupMode ?? get().partyGroupMode,
+        });
+      },
+
+      applyNetworkTokenMove: (tokenId, col, row) => {
+        get().moveToken(tokenId, col, row);
+      },
     }),
     {
       name: 'mb-hex-map-storage',
