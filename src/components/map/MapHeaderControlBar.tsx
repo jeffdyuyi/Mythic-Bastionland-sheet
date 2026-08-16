@@ -31,6 +31,12 @@ export const MapHeaderControlBar: React.FC<Props> = ({
     importMapJSON,
     mode,
     currentMapTitle,
+    movementPhaseActive,
+    setMovementPhaseActive,
+    partyGroupMode,
+    setPartyGroupMode,
+    selectedTokenId,
+    selectToken,
   } = useMapStore();
 
   const [newTokenName, setNewTokenName] = useState('');
@@ -85,53 +91,92 @@ export const MapHeaderControlBar: React.FC<Props> = ({
 
   return (
     <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-4 shadow-sm space-y-3">
-      {/* 行 1：队伍棋子管理 */}
-      <div className="flex justify-between items-center pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold text-stone-600 dark:text-stone-300">
-            队伍棋子 ({tokens.length})
+      {/* 行 1：队伍棋子管理与移动回合状态 */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-stone-100 dark:border-stone-800/80">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-bold text-stone-600 dark:text-stone-300 shrink-0">
+            队伍棋子 ({tokens.length}):
           </span>
           <div className="flex flex-wrap gap-1.5 items-center">
-            {tokens.map((token) => (
-              <div
-                key={token.id}
-                className="flex items-center gap-1.5 px-3 py-1 bg-stone-100 dark:bg-stone-800 rounded-full text-xs text-stone-800 dark:text-stone-200 border border-stone-200/80 dark:border-stone-700/80 font-medium"
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: token.color || '#B45309' }}
-                />
-                <span>{token.name}</span>
-              </div>
-            ))}
+            {tokens.map((token) => {
+              const isSelected = selectedTokenId === token.id;
+              return (
+                <button
+                  key={token.id}
+                  onClick={() => selectToken(token.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs transition border cursor-pointer ${
+                    isSelected
+                      ? 'bg-amber-600 text-white border-amber-500 font-bold shadow-sm'
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200/80 dark:border-stone-700/80 hover:bg-stone-200 dark:hover:bg-stone-750'
+                  }`}
+                  title="点击切换选定操控此棋子"
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-black/20"
+                    style={{ backgroundColor: token.color || '#B45309' }}
+                  />
+                  <span>{token.name}</span>
+                  <span className="text-[10px] opacity-75">[{token.col},{token.row}]</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <button
-          onClick={() => setShowTokenModal(true)}
-          className="text-xs font-bold text-amber-700 hover:text-amber-800 dark:text-amber-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer shrink-0"
-        >
-          <UserPlus className="w-4 h-4 text-amber-600" />
-          <span>+ 新增棋子</span>
-        </button>
+        {/* 仅主持人端允许新增棋子 */}
+        {mode === 'gm' && (
+          <button
+            onClick={() => setShowTokenModal(true)}
+            className="text-xs font-bold text-amber-700 hover:text-amber-800 dark:text-amber-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer shrink-0 self-end sm:self-center"
+          >
+            <UserPlus className="w-4 h-4 text-amber-600" />
+            <span>+ 新增棋子</span>
+          </button>
+        )}
       </div>
 
-      {/* 行 2：控制按钮与状态 */}
+      {/* 行 2：控制按钮、移动回合开关与组队模式开关 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {mode === 'gm' && (
+          {mode === 'gm' ? (
             <>
+              {/* GM 独享：移动回合开关 */}
+              <button
+                onClick={() => setMovementPhaseActive(!movementPhaseActive)}
+                className={`py-2 px-3.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border ${
+                  movementPhaseActive
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-sm'
+                    : 'bg-rose-950/40 text-rose-300 border-rose-800 hover:bg-rose-900/60'
+                }`}
+                title="开启后骑士端的玩家才可以点击移动棋子"
+              >
+                <span>{movementPhaseActive ? '🔓 移动回合已开启' : '🔒 移动回合锁盘中'}</span>
+              </button>
+
+              {/* GM 独享：组队移动开关 */}
+              <button
+                onClick={() => setPartyGroupMode(!partyGroupMode)}
+                className={`py-2 px-3.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border ${
+                  partyGroupMode
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-500 shadow-sm'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700'
+                }`}
+                title="开启后整队骑士整合为同一单位组队同频移动"
+              >
+                <span>{partyGroupMode ? '🛡️ 队伍组队同频移动 (已开启)' : '🤺 骑士独立独立移动'}</span>
+              </button>
+
               <button
                 onClick={handleQuickSave}
-                className="flex-1 sm:flex-initial py-2 px-4 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
+                className="py-2 px-3 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
               >
                 <Save className="w-4 h-4 text-amber-600" />
-                <span>{isJustSaved ? '已保存' : '保存地图'}</span>
+                <span>{isJustSaved ? '已保存' : '保存'}</span>
               </button>
 
               <button
                 onClick={handleExportJSON}
-                className="flex-1 sm:flex-initial py-2 px-4 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
+                className="py-2 px-3 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
               >
                 <Download className="w-4 h-4 text-blue-600" />
                 <span>导出</span>
@@ -139,7 +184,7 @@ export const MapHeaderControlBar: React.FC<Props> = ({
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 sm:flex-initial py-2 px-4 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
+                className="py-2 px-3 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
               >
                 <Upload className="w-4 h-4 text-emerald-600" />
                 <span>导入</span>
@@ -154,7 +199,7 @@ export const MapHeaderControlBar: React.FC<Props> = ({
 
               <button
                 onClick={onOpenSettings}
-                className="flex-1 sm:flex-initial py-2 px-4 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
+                className="py-2 px-3 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-750 text-stone-800 dark:text-stone-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 border border-stone-200/80 dark:border-stone-700 transition cursor-pointer"
               >
                 <Settings className="w-4 h-4 text-purple-600" />
                 <span>设置</span>
@@ -162,19 +207,35 @@ export const MapHeaderControlBar: React.FC<Props> = ({
 
               <button
                 onClick={onOpenTemplates}
-                className="flex-1 sm:flex-initial py-2 px-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-300 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border border-amber-500/30 transition cursor-pointer"
+                className="py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-300 rounded-2xl text-xs font-bold flex items-center gap-1.5 border border-amber-500/30 transition cursor-pointer"
               >
                 <Layers className="w-4 h-4 text-amber-600" />
                 <span>预设模板</span>
               </button>
             </>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`px-3 py-1.5 rounded-2xl text-xs font-bold border flex items-center gap-1.5 ${
+                movementPhaseActive
+                  ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40'
+                  : 'bg-rose-500/15 text-rose-800 dark:text-rose-300 border-rose-500/40'
+              }`}>
+                <span>{movementPhaseActive ? '🟢 移动回合开启中 (按顺序每次可移动 1 格)' : '🔒 移动回合暂未开启 (请等待裁判指令)'}</span>
+              </span>
+
+              {partyGroupMode && (
+                <span className="px-3 py-1.5 bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 rounded-2xl text-xs font-bold border border-indigo-500/40">
+                  🛡️ 队伍组队推移模式
+                </span>
+              )}
+            </div>
           )}
         </div>
 
         {/* 自动保存指示器 */}
         <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400 text-xs font-mono bg-stone-50 dark:bg-stone-800/60 px-3 py-1.5 rounded-xl border border-stone-200/60 dark:border-stone-800 ml-auto sm:ml-0">
           <Clock className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-          <span>自动保存中 (5分钟/次)</span>
+          <span>自动保存 (5分钟/次)</span>
           {lastAutoSaveTime && (
             <span className="text-[11px] text-stone-400 font-sans">
               ({lastAutoSaveTime})

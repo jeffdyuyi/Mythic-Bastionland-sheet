@@ -18,6 +18,12 @@ interface MapState {
   sightDistance: number; // 1-5 格
   revealMode: 'permanent' | 'los'; // 永久揭示 vs 动态视线
   
+  // 移动回合与组队控制
+  movementPhaseActive: boolean; // 裁判控制是否开启移动回合 (移动回合关闭时玩家无法移动)
+  partyGroupMode: boolean; // 裁判控制是否开启队伍组队移动 (整队整合移动)
+  setMovementPhaseActive: (active: boolean) => void;
+  setPartyGroupMode: (group: boolean) => void;
+  
   // 数据
   currentMapTitle: string;
   hexes: Record<string, HexCell>;
@@ -252,6 +258,11 @@ export const useMapStore = create<MapState>()(
         }
       ],
 
+      movementPhaseActive: true,
+      partyGroupMode: false,
+      setMovementPhaseActive: (movementPhaseActive) => set({ movementPhaseActive }),
+      setPartyGroupMode: (partyGroupMode) => set({ partyGroupMode }),
+
       setMode: (mode) => set({ mode }),
       setActiveTool: (activeTool) => set({ activeTool }),
       setSelectedTerrain: (selectedTerrain) => set({ selectedTerrain }),
@@ -418,13 +429,21 @@ export const useMapStore = create<MapState>()(
       },
 
       moveToken: (id, col, row) => {
-        const { tokens, width, height, sightDistance, hexes, revealMode } = get();
+        const { tokens, width, height, sightDistance, hexes, revealMode, partyGroupMode } = get();
         const tokenIndex = tokens.findIndex((t) => t.id === id);
         if (tokenIndex === -1) return;
 
         const targetToken = tokens[tokenIndex];
-        const updatedTokens = [...tokens];
-        updatedTokens[tokenIndex] = { ...targetToken, col, row };
+        let updatedTokens = [...tokens];
+
+        if (partyGroupMode && targetToken.isPlayer) {
+          // 组队模式：所有玩家 Token 整合同频移动
+          updatedTokens = updatedTokens.map((t) =>
+            t.isPlayer ? { ...t, col, row } : t
+          );
+        } else {
+          updatedTokens[tokenIndex] = { ...targetToken, col, row };
+        }
 
         const newHexes = { ...hexes };
 

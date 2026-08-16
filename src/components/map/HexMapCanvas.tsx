@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { useMapStore, getHexKey } from '../../stores/useMapStore';
+import { useMapStore, getHexKey, getHexNeighbors } from '../../stores/useMapStore';
 import type { TerrainType, StructureType } from '../../types/map';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
@@ -35,7 +35,10 @@ export const HexMapCanvas: React.FC = () => {
     selectedTokenId,
     selectToken,
     moveToken,
+    movementPhaseActive,
   } = useMapStore();
+
+  const [turnNotice, setTurnNotice] = useState<string | null>(null);
 
   // 平移与缩放 Viewport State
   const [transform, setTransform] = useState({ x: 40, y: 40, scale: 1 });
@@ -366,34 +369,42 @@ export const HexMapCanvas: React.FC = () => {
     const hit = getHexFromPixel(canvasX, canvasY);
 
     if (hit) {
-      const key = getHexKey(hit.col, hit.row);
-      selectHex(key);
-
-      // 检查是否点击了 Token
+      // 检查是否点击了 Token 棋子
       const clickedToken = tokens.find((t) => t.col === hit.col && t.row === hit.row);
       if (clickedToken) {
         selectToken(clickedToken.id);
-      } else if (selectedTokenId) {
-        // 如果已选中 Token 且点击了空 Hex，移动 Token
-        moveToken(selectedTokenId, hit.col, hit.row);
       }
 
-      // 根据当前工具触发绘制/编辑
       if (mode === 'gm') {
         if (activeTool === 'brush' || activeTool === 'erase' || activeTool === 'fog_toggle') {
           paintHex(hit.col, hit.row);
         } else if (activeTool === 'fill') {
           floodFillTerrain(hit.col, hit.row, selectedTerrain);
+        } else if (selectedTokenId) {
+          moveToken(selectedTokenId, hit.col, hit.row);
         }
       } else {
-        // 玩家模式：直接点击探索邻近 Hex
-        if (selectedTokenId) {
-          moveToken(selectedTokenId, hit.col, hit.row);
-        } else {
-          // 如果没选中 Token，默认移动第一个 Player Token
-          const pToken = tokens.find((t) => t.isPlayer);
-          if (pToken) {
-            moveToken(pToken.id, hit.col, hit.row);
+        // 骑士 / 玩家模式
+        if (!movementPhaseActive) {
+          setTurnNotice('🔒 当前处于非移动回合，请等待裁判开启移动回合！');
+          setTimeout(() => setTurnNotice(null), 3000);
+          return;
+        }
+
+        const activeToken = selectedTokenId
+          ? tokens.find((t) => t.id === selectedTokenId)
+          : tokens.find((t) => t.isPlayer);
+
+        if (activeToken) {
+          // 校验 1-step 相邻移动限制
+          const neighbors = getHexNeighbors(activeToken.col, activeToken.row, width, height);
+          const isNeighbor = neighbors.some(([nc, nr]: [number, number]) => nc === hit.col && nr === hit.row);
+
+          if (isNeighbor || (activeToken.col === hit.col && activeToken.row === hit.row)) {
+            moveToken(activeToken.id, hit.col, hit.row);
+          } else {
+            setTurnNotice('⚠️ 移动回合开启时，骑士每次仅能移动 1 格相邻六边形！');
+            setTimeout(() => setTurnNotice(null), 3000);
           }
         }
       }
@@ -487,6 +498,13 @@ export const HexMapCanvas: React.FC = () => {
 
   return (
     <div className="relative w-full h-[640px] bg-stone-100 dark:bg-stone-900 rounded-3xl overflow-hidden shadow-inner border border-stone-200 dark:border-stone-800">
+      {/* 规则与回合限制动态浮窗 */}
+      {turnNotice && (
+        <div className="absolute top-4 left-4 z-20 px-4 py-2 bg-stone-950/90 text-amber-300 border border-amber-500/50 rounded-2xl text-xs font-bold shadow-xl animate-bounce backdrop-blur-md">
+          {turnNotice}
+        </div>
+      )}
+
       <canvas
         ref={canvasRef}
         className={`w-full h-full touch-none ${isPanning ? 'cursor-grabbing' : 'cursor-crosshair'}`}
@@ -553,7 +571,7 @@ export const HexMapCanvas: React.FC = () => {
               {!hexes[hoveredHexKey].explored ? ' (迷雾中)' : ''}
             </span>
           ) : (
-            <span>点击六边形进行移动或绘制</span>
+            <span>💡 单击移动棋子 · 双击查看六边形详细档案</span>
           )}
         </div>
       </div>
