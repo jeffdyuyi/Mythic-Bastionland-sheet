@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useMapStore, getHexKey } from '../../stores/useMapStore';
 import type { TerrainType, StructureType } from '../../types/map';
+import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 const TERRAIN_STYLES: Record<TerrainType, { bg: string; border: string; name: string }> = {
   plains: { bg: '#E2F1E7', border: '#86EFAC', name: '平原' },
@@ -437,32 +438,50 @@ export const HexMapCanvas: React.FC = () => {
     setIsPanning(false);
   };
 
-  // 滚轮操控：默认滚轮直接平移地图，Ctrl/Meta+滚轮按鼠标指针缩放
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+  // 关键交互优化：通过原生非 passive 绑定将滚轮事件与网页滚动彻底解耦 (Decouple page scroll from map canvas zoom)
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    if (e.ctrlKey || e.metaKey) {
-      // Ctrl/Meta + 滚轮按鼠标指针位置智能缩放
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    const handleNativeWheel = (e: WheelEvent) => {
+      // 拦截原生滚轮事件，阻止整个网页外框随之上下下滑动
+      e.preventDefault();
+      e.stopPropagation();
+
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
+      // 向上滚轮放大，向下滚轮缩小 (以鼠标当前焦点坐标为中心)
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
       setTransform((prev) => {
-        const newScale = Math.max(0.3, Math.min(3.0, prev.scale * zoomFactor));
+        const newScale = Math.max(0.3, Math.min(3.5, prev.scale * zoomFactor));
         const newX = mouseX - (mouseX - prev.x) * (newScale / prev.scale);
         const newY = mouseY - (mouseY - prev.y) * (newScale / prev.scale);
         return { x: newX, y: newY, scale: newScale };
       });
-    } else {
-      // 普通滚轮 -> 顺畅平移地图 (垂直与水平)
-      setTransform((prev) => ({
-        ...prev,
-        x: prev.x - e.deltaX * 0.85,
-        y: prev.y - e.deltaY * 0.85,
-      }));
+    };
+
+    canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, []);
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const canvasX = (mouseX - transform.x) / transform.scale;
+    const canvasY = (mouseY - transform.y) / transform.scale;
+
+    const hit = getHexFromPixel(canvasX, canvasY);
+    if (hit) {
+      const key = getHexKey(hit.col, hit.row);
+      selectHex(key);
     }
   };
 
@@ -475,22 +494,41 @@ export const HexMapCanvas: React.FC = () => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={(e) => e.preventDefault()}
       />
 
-      {/* 画布角落快捷控制浮层 */}
-      <div className="absolute top-4 right-4 flex items-center gap-2 bg-white/80 dark:bg-stone-800/80 backdrop-blur-md px-3 py-1.5 rounded-full shadow border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-600 dark:text-stone-300">
-        <span>滚轮平移 | Ctrl+滚轮缩放</span>
-        <span className="w-px h-3 bg-stone-300 dark:bg-stone-600" />
-        <span>右键/中键/Shift 拖拽</span>
-        <span className="w-px h-3 bg-stone-300 dark:bg-stone-600" />
-        <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{Math.round(transform.scale * 100)}%</span>
+      {/* 画布角落快捷控制浮层 (页面滚动与地图缩放已彻底隔离) */}
+      <div className="absolute top-4 right-4 flex items-center gap-2 bg-white/85 dark:bg-stone-800/85 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-md border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 z-10">
+        <span className="font-semibold">滚轮缩放地图 · 拖拽平移视角</span>
+        <span className="w-px h-3.5 bg-stone-300 dark:bg-stone-600 mx-1" />
+        
+        <button
+          onClick={() => setTransform((prev) => ({ ...prev, scale: Math.min(3.5, prev.scale * 1.15) }))}
+          className="p-1 bg-stone-100 hover:bg-stone-200 dark:bg-stone-700 dark:hover:bg-stone-600 rounded-lg transition cursor-pointer"
+          title="放大地图"
+        >
+          <ZoomIn className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          onClick={() => setTransform((prev) => ({ ...prev, scale: Math.max(0.3, prev.scale * 0.85) }))}
+          className="p-1 bg-stone-100 hover:bg-stone-200 dark:bg-stone-700 dark:hover:bg-stone-600 rounded-lg transition cursor-pointer"
+          title="缩小地图"
+        >
+          <ZoomOut className="w-3.5 h-3.5" />
+        </button>
+
+        <span className="font-mono font-bold text-amber-700 dark:text-amber-400 min-w-[42px] text-center">
+          {Math.round(transform.scale * 100)}%
+        </span>
+
         <button
           onClick={() => setTransform({ x: 40, y: 40, scale: 1 })}
-          className="ml-1 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 rounded-full transition cursor-pointer"
+          className="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 rounded-lg transition cursor-pointer text-[11px] font-bold flex items-center gap-1"
+          title="重置缩放与视角"
         >
-          重置
+          <RotateCcw className="w-3 h-3" /> 重置
         </button>
       </div>
 

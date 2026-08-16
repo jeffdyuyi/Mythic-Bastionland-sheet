@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMapStore } from '../../stores/useMapStore';
 import { HexMapCanvas } from '../../components/map/HexMapCanvas';
 import { MapToolbar } from '../../components/map/MapToolbar';
+import { MapHeaderControlBar } from '../../components/map/MapHeaderControlBar';
 import { HexDicePanel } from '../../components/map/HexDicePanel';
 import { HexInspectorDrawer } from '../../components/map/HexInspectorDrawer';
 import { MapTemplatesModal } from '../../components/map/MapTemplatesModal';
@@ -11,11 +12,15 @@ import { ArrowLeft, Compass, Map as MapIcon, HelpCircle, Shield, Dices, Radio, P
 
 export const MapWorkspacePage: React.FC = () => {
   const navigate = useNavigate();
-  const { mode, currentMapTitle, activeRoom, updateRoomHeartbeat, closeRoom } = useMapStore();
+  const { mode, currentMapTitle, activeRoom, updateRoomHeartbeat, closeRoom, saveCurrentMap } = useMapStore();
 
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<string>(
+    new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  );
 
   const isPlayerMode = mode === 'player';
 
@@ -32,6 +37,19 @@ export const MapWorkspacePage: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [activeRoom, isPlayerMode, updateRoomHeartbeat]);
+
+  // 每隔 5 分钟自动存入本机 1 次 (Auto Save every 5 minutes)
+  useEffect(() => {
+    if (isPlayerMode) return;
+
+    const interval = setInterval(() => {
+      saveCurrentMap(currentMapTitle || '战役地图');
+      const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      setLastAutoSaveTime(timeStr);
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isPlayerMode, saveCurrentMap, currentMapTitle]);
 
   const handleDissolveRoom = () => {
     if (!activeRoom) return;
@@ -126,7 +144,7 @@ export const MapWorkspacePage: React.FC = () => {
                 <span>GM 裁判模式</span>
               </div>
               <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-                具备全图视野与完整绘制权。可使用涂色刷子、泛洪填充、绘制建筑、程序生成群系或加载预设地图。
+                具备全图视野与完整绘制权。右侧操控台可切换画笔、调色板、结构与生成群系。每 5 分钟自动保存到本地。
               </p>
             </div>
 
@@ -137,7 +155,7 @@ export const MapWorkspacePage: React.FC = () => {
                 <span>玩家探索模式</span>
               </div>
               <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-                全图覆盖战争迷雾。点击任意格子可放置或移动骑士 Token，周围视距内的格子将自动揭开。
+                全图覆盖战争迷雾。点击任意格子可移动骑士 Token 并自动揭开迷雾。
               </p>
             </div>
 
@@ -145,32 +163,38 @@ export const MapWorkspacePage: React.FC = () => {
             <div className="bg-white dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-800 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-1.5 font-bold text-red-800 dark:text-red-400 text-sm">
                 <Dices className="w-4 h-4 text-red-600" />
-                <span>聚合投骰塔</span>
+                <span>面团线下投骰</span>
               </div>
               <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-                右侧集成了神话堡垒机制快捷骰（美德判定 1d20、六边形遭遇 1d6、诗号 d6+d12 等）与历史日志，可随时掷骰。
+                遵循面团辅助工具原则：骑士端精简投骰塔，鼓励跑团现场进行实体投骰。
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* 主布局：左侧地图 Canvas + 绘制控制栏，右侧抽屉 + 投骰面板 */}
+      {/* 统一全局功能控制条 (参考图中的功能条 - 位于整个房间标题下方，地图上方) */}
+      <MapHeaderControlBar
+        onOpenTemplates={() => setIsTemplatesOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        lastAutoSaveTime={lastAutoSaveTime}
+      />
+
+      {/* 主布局：左侧 2 列 HexMapCanvas 画布，右侧 1 列 GM 裁判操控台与格子档案 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 左侧两列：Canvas 画布 + 绘制控制栏 */}
+        {/* 左侧两列：Canvas 地图画布 */}
         <div className="lg:col-span-2 space-y-6">
           <HexMapCanvas />
+        </div>
+
+        {/* 右侧一列：GM 裁判地图操控台 + 格子档案 + GM投骰面板 */}
+        <div className="lg:col-span-1 space-y-6">
           <MapToolbar
             onOpenTemplates={() => setIsTemplatesOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            isPlayerLocked={isPlayerMode}
           />
-        </div>
-
-        {/* 右侧一列：格子档案抽屉与投骰聚合控制台 */}
-        <div className="lg:col-span-1 space-y-6">
           <HexInspectorDrawer />
-          <HexDicePanel />
+          {!isPlayerMode && <HexDicePanel />}
         </div>
       </div>
 

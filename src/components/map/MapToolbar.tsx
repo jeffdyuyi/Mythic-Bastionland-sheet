@@ -1,20 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import { useMapStore } from '../../stores/useMapStore';
 import type { MapTool, TerrainType, StructureType } from '../../types/map';
 import {
   Paintbrush,
   PaintBucket,
-  UserPlus,
   Eye,
   Eraser,
   Undo,
   Redo,
   Sparkles,
-  Layers,
-  Save,
-  Download,
-  Upload,
-  Settings,
   EyeOff,
   Crosshair,
 } from 'lucide-react';
@@ -44,10 +38,9 @@ const STRUCTURES: { id: StructureType; label: string; icon: string }[] = [
 interface Props {
   onOpenTemplates: () => void;
   onOpenSettings: () => void;
-  isPlayerLocked?: boolean;
 }
 
-export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings }) => {
+export const MapToolbar: React.FC<Props> = () => {
   const {
     mode,
     activeTool,
@@ -65,89 +58,26 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings })
     historyIndex,
     history,
     generateRandomBiome,
-    addToken,
-    saveCurrentMap,
-    hexes,
-    width,
-    height,
-    tokens,
-    importMapJSON,
   } = useMapStore();
-
-  const [mapNameInput, setMapNameInput] = useState('');
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [newTokenName, setNewTokenName] = useState('');
-  const [showTokenModal, setShowTokenModal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // 导出 JSON
-  const handleExportJSON = () => {
-    const data = JSON.stringify({ width, height, hexes, tokens }, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mythic-hex-map-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // 导入 JSON
-  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        const success = importMapJSON(content);
-        if (success) {
-          alert('地图导入成功！');
-        } else {
-          alert('地图文件格式不正确！');
-        }
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleAddTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTokenName.trim()) return;
-    addToken(newTokenName.trim(), Math.floor(width / 2), Math.floor(height / 2), '#BE123C', true);
-    setNewTokenName('');
-    setShowTokenModal(false);
-  };
-
-  const handleSaveMapSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveCurrentMap(mapNameInput.trim() || '未命名地图');
-    setMapNameInput('');
-    setShowSaveModal(false);
-    alert('地图存入列表成功！');
-  };
 
   return (
     <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-sm space-y-5">
-      {/* 视角控制标识 (完全锁定在二级门廊，禁止在地图内部混用与切换) */}
+      {/* 头部模式标识 */}
       <div className="flex items-center justify-between bg-stone-50 dark:bg-stone-800/80 p-3 rounded-2xl border border-stone-200 dark:border-stone-700">
         <div className="flex items-center gap-2 font-bold text-xs">
           {mode === 'gm' ? (
-            <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1.5 font-serif text-sm">
-              👑 GM 裁判地图操控台
+            <span className="text-amber-800 dark:text-amber-300 flex items-center gap-1.5 font-serif text-sm">
+              👑 裁判地图工具
             </span>
           ) : (
-            <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 font-serif text-sm">
-              🛡️ 骑士探索迷雾视窗
+            <span className="text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 font-serif text-sm">
+              🛡️ 队伍探索视野
             </span>
           )}
         </div>
-        <span className="text-[11px] text-stone-400 font-mono px-2.5 py-0.5 bg-stone-200/60 dark:bg-stone-700/60 rounded-full">
-          门廊选定模式
-        </span>
       </div>
 
-      {/* 2. GM 专属绘制工具集 */}
+      {/* 裁判专属绘制控制 */}
       {mode === 'gm' && (
         <div className="space-y-4">
           <div>
@@ -169,7 +99,7 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings })
                     onClick={() => setActiveTool(tool.id as MapTool)}
                     className={`flex flex-col items-center justify-center p-2 rounded-2xl text-xs font-medium border transition cursor-pointer ${
                       activeTool === tool.id
-                        ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-500 text-amber-900 dark:text-amber-200'
+                        ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-500 text-amber-900 dark:text-amber-200 shadow-sm font-bold'
                         : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750'
                     }`}
                   >
@@ -193,7 +123,7 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings })
                   onClick={() => setSelectedTerrain(terrain.id)}
                   className={`flex flex-col items-center justify-center p-1.5 rounded-xl border text-[11px] font-medium transition cursor-pointer ${
                     selectedTerrain === terrain.id
-                      ? 'border-amber-600 ring-2 ring-amber-500/50 scale-105 shadow-sm'
+                      ? 'border-amber-600 ring-2 ring-amber-500/50 scale-105 shadow-sm font-bold'
                       : 'border-stone-200 dark:border-stone-700'
                   }`}
                   style={{ backgroundColor: terrain.color + '25' }}
@@ -220,7 +150,7 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings })
                   onClick={() => setSelectedStructure(s.id)}
                   className={`py-1.5 px-2 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition cursor-pointer ${
                     selectedStructure === s.id
-                      ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-500 text-amber-900 dark:text-amber-200'
+                      ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-500 text-amber-900 dark:text-amber-200 font-bold'
                       : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300'
                   }`}
                 >
@@ -231,7 +161,7 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings })
             </div>
           </div>
 
-          {/* 撤销 / 重做与模版成生成 */}
+          {/* 撤销 / 重做与随机生成 */}
           <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-2">
             <div className="flex gap-2">
               <button
@@ -250,26 +180,21 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings })
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={generateRandomBiome}
-                className="py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" /> 随机生成群系
-              </button>
+            <button
+              onClick={generateRandomBiome}
+              className="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" /> 随机生成群系
+            </button>
+          </div>
 
-              <button
-                onClick={onOpenTemplates}
-                className="py-2 px-3 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                <Layers className="w-4 h-4" /> 预设地图模板
-              </button>
-            </div>
+          <div className="text-[11px] text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-800/50 p-2.5 rounded-xl border border-stone-200/60 dark:border-stone-800 leading-relaxed">
+            💡 点击或双击地图上的六边形格子，可直接调出详细地名与档案编辑面板。
           </div>
         </div>
       )}
 
-      {/* 3. 玩家模式视角设置 */}
+      {/* 玩家模式视角设置 */}
       {mode === 'player' && (
         <div className="space-y-4">
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
@@ -325,146 +250,6 @@ export const MapToolbar: React.FC<Props> = ({ onOpenTemplates, onOpenSettings })
                 动态视线遮蔽
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. 通用 Token 标志添加与管理 */}
-      <div className="pt-3 border-t border-stone-100 dark:border-stone-800 space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-semibold text-stone-400 uppercase tracking-wider">
-            角色与棋子 ({tokens.length})
-          </span>
-          <button
-            onClick={() => setShowTokenModal(true)}
-            className="text-xs text-amber-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-          >
-            <UserPlus className="w-3.5 h-3.5" /> 添加棋子
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          {tokens.map((token) => (
-            <div
-              key={token.id}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-stone-100 dark:bg-stone-800 rounded-full text-xs text-stone-800 dark:text-stone-200 border border-stone-200 dark:border-stone-700"
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: token.color }}
-              />
-              <span className="font-medium">{token.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 5. 底部导入导出与设置文件栏 */}
-      <div className="pt-3 border-t border-stone-100 dark:border-stone-800 grid grid-cols-4 gap-2">
-        <button
-          onClick={() => setShowSaveModal(true)}
-          className="py-1.5 px-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center justify-center gap-1 border border-stone-200 dark:border-stone-700 cursor-pointer"
-        >
-          <Save className="w-3.5 h-3.5" /> 保存
-        </button>
-
-        <button
-          onClick={handleExportJSON}
-          className="py-1.5 px-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center justify-center gap-1 border border-stone-200 dark:border-stone-700 cursor-pointer"
-        >
-          <Download className="w-3.5 h-3.5" /> 导出
-        </button>
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="py-1.5 px-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center justify-center gap-1 border border-stone-200 dark:border-stone-700 cursor-pointer"
-        >
-          <Upload className="w-3.5 h-3.5" /> 导入
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleImportJSON}
-          className="hidden"
-        />
-
-        <button
-          onClick={onOpenSettings}
-          className="py-1.5 px-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center justify-center gap-1 border border-stone-200 dark:border-stone-700 cursor-pointer"
-        >
-          <Settings className="w-3.5 h-3.5" /> 设置
-        </button>
-      </div>
-
-      {/* 模态框：添加 Token */}
-      {showTokenModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl max-w-sm w-full shadow-2xl border border-stone-200 dark:border-stone-800 space-y-4">
-            <h4 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100">
-              添加新棋子 Token
-            </h4>
-            <form onSubmit={handleAddTokenSubmit} className="space-y-4">
-              <input
-                type="text"
-                value={newTokenName}
-                onChange={(e) => setNewTokenName(e.target.value)}
-                placeholder="例如: 镜之骑士 Meridian"
-                className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-sm text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowTokenModal(false)}
-                  className="px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-amber-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  添加
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 模态框：保存地图 */}
-      {showSaveModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl max-w-sm w-full shadow-2xl border border-stone-200 dark:border-stone-800 space-y-4">
-            <h4 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100">
-              存入战役地图列表
-            </h4>
-            <form onSubmit={handleSaveMapSubmit} className="space-y-4">
-              <input
-                type="text"
-                value={mapNameInput}
-                onChange={(e) => setMapNameInput(e.target.value)}
-                placeholder="例如: 边缘荒野战役 01"
-                className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-sm text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowSaveModal(false)}
-                  className="px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-amber-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  保存
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

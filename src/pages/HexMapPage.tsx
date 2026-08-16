@@ -104,20 +104,19 @@ export const HexMapPage: React.FC = () => {
 
       {/* 主布局：左侧地图与控制，右侧抽屉与投骰面板 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 左侧两列：Canvas 画布 + 绘制控制栏 */}
+        {/* 左侧两列：Canvas 画布 */}
         <div className="lg:col-span-2 space-y-6">
           <HexMapCanvas />
+        </div>
+
+        {/* 右侧一列：GM 裁判地图操控台与格子档案 */}
+        <div className="lg:col-span-1 space-y-6">
           <MapToolbar
             onOpenTemplates={() => setIsTemplatesOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            isPlayerLocked={isPlayerMode}
           />
-        </div>
-
-        {/* 右侧一列：格子档案抽屉与投骰聚合控制台 */}
-        <div className="lg:col-span-1 space-y-6">
           <HexInspectorDrawer />
-          <HexDicePanel />
+          {!isPlayerMode && <HexDicePanel />}
         </div>
       </div>
 
