@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { RouterProvider, createHashRouter, Navigate } from 'react-router-dom';
+import { useAppStore } from './store/useAppStore';
 import Onboarding from './pages/Onboarding';
 import AppLayout from './layouts/AppLayout';
 import PlayerDashboard from './pages/player/PlayerDashboard';
@@ -13,7 +14,6 @@ const RulesReference = lazy(() => import('./pages/player/RulesReference'));
 const PlayerMapPage = lazy(() => import('./pages/player/PlayerMapPage'));
 const GMMapPage = lazy(() => import('./pages/gm/GMMapPage'));
 const MythChronicles = lazy(() => import('./pages/gm/MythChronicles'));
-const MapHubPage = lazy(() => import('./pages/map/MapHubPage'));
 const MapWorkspacePage = lazy(() => import('./pages/map/MapWorkspacePage'));
 
 const PageFallback = () => (
@@ -21,6 +21,13 @@ const PageFallback = () => (
     加载中...
   </div>
 );
+
+const MapRoleRedirect = () => {
+  const userRole = useAppStore.getState().userRole;
+  if (userRole === 'gm') return <Navigate to="/gm/map" replace />;
+  if (userRole === 'player') return <Navigate to="/player/map" replace />;
+  return <Navigate to="/" replace />;
+};
 
 const router = createHashRouter([
   {
@@ -30,14 +37,10 @@ const router = createHashRouter([
   {
     element: <AppLayout />,
     children: [
-      // ---- Independent Map Hub & Workspace ----
+      // ---- Independent Map Hub & Workspace Redirect ----
       {
         path: '/map',
-        element: (
-          <Suspense fallback={<PageFallback />}>
-            <MapHubPage />
-          </Suspense>
-        ),
+        element: <MapRoleRedirect />,
       },
       {
         path: '/map/workspace',

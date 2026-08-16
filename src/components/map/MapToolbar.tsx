@@ -53,6 +53,10 @@ export const MapToolbar: React.FC<Props> = () => {
     historyIndex,
     history,
     generateRandomBiome,
+    sightDistance,
+    setSightDistance,
+    revealMode,
+    setRevealMode,
   } = useMapStore();
 
   if (mode !== 'gm') return null;
@@ -112,6 +116,30 @@ export const MapToolbar: React.FC<Props> = () => {
               title="重做下一步"
             >
               <Redo className="w-3.5 h-3.5" /> 重做
+            </button>
+          </div>
+
+          {/* GM 独占控制：设定骑士战团视野距离与迷雾探知模式 */}
+          <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 px-3 py-1 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 text-xs">
+            <span className="font-bold text-amber-800 dark:text-amber-300">👁️ 骑士视野:</span>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={sightDistance}
+              onChange={(e) => setSightDistance(parseInt(e.target.value, 10))}
+              className="w-16 accent-amber-600 cursor-pointer"
+            />
+            <span className="font-mono font-bold text-amber-800 dark:text-amber-300">{sightDistance}格</span>
+
+            <span className="w-px h-3.5 bg-amber-300 dark:bg-amber-800 mx-0.5" />
+
+            <button
+              onClick={() => setRevealMode(revealMode === 'permanent' ? 'los' : 'permanent')}
+              className="px-2 py-0.5 rounded-lg bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold hover:bg-amber-300 transition cursor-pointer text-[11px]"
+              title="切换迷雾模式: 永久记忆 vs 动态视线 (LOS)"
+            >
+              {revealMode === 'permanent' ? '永久探知' : '视线 (LOS)'}
             </button>
           </div>
 

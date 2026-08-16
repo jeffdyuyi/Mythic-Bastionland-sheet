@@ -54,32 +54,6 @@ export default function Onboarding() {
           </button>
         </div>
 
-        {/* 独立六边形地图入口 */}
-        <button
-          onClick={() => navigate('/map')}
-          className="w-full max-w-[720px] bg-gradient-to-r from-amber-950/20 via-stone-900/40 to-stone-900 border border-amber-500/40 hover:border-amber-500 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center justify-between cursor-pointer group text-left"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform border border-amber-500/30">
-              <Compass className="w-5 h-5 animate-spin-slow" />
-            </div>
-            <div>
-              <div className="font-serif font-bold text-amber-100 text-sm group-hover:text-amber-300 transition-colors flex items-center gap-2">
-                <span>六边形探索地图门廊 (Hex Crawl Map)</span>
-                <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full border border-amber-500/30">
-                  独立模块
-                </span>
-              </div>
-              <div className="text-xs text-stone-400">
-                裁判操作地图库 / 骑士加入迷雾房间 / 机制投骰塔
-              </div>
-            </div>
-          </div>
-          <span className="text-xs font-bold text-amber-400 group-hover:translate-x-1 transition-transform pr-2">
-            选择进入 →
-          </span>
-        </button>
-
         {/* 全局规则与图鉴入口 */}
         <button
           onClick={() => handleSelectRole('player', '/player/library')}
